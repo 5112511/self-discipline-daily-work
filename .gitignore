@@ -12,3 +12,5 @@ _pwa_meta.mjs
 .DS_Store
 Thumbs.db
 tsconfig.tsbuildinfo
+personal-os/
+backend/
