@@ -1,0 +1,741 @@
+import type { DemoData, Task, Inspiration, Project, Schedule, Domain, FocusSession, FocusSettings, Ledger, LedgerAccount, LedgerTxn, LedgerSnapshot, TrendingTopic, TrendingCategory, TrendingSource, BloggerRef, TrendingPlatform } from './types'
+import { demoData as defaultDemo } from './data'
+
+// ===== 玥莹的 Personal OS · 数据层（LocalStorage 持久化）=====
+
+const STORAGE_KEY = 'personal-os-data-v1'
+const VERSION = 1
+
+function todayStr(): string {
+  const d = new Date()
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return d.getFullYear() + '-' + m + '-' + day
+}
+
+export interface AppData {
+  version: number
+  tasks: Task[]
+  inspirations: Inspiration[]
+  projects: Project[]
+  schedules: Schedule[]
+  // 头部与统计中部分"日级"信息仍用 demo 兜底
+  meta: {
+    todayProgress: number
+    streakDays: number
+    greeting: string
+    mood: string
+  }
+  settings: {
+    avatarText: string
+    displayName: string
+  }
+  inboxCleared: number
+  weekTrend: number[]
+  heatmap: number[]
+  weekDist: { domain: Domain; minutes: number }[]
+  focusSessions: FocusSession[]
+  focusSettings: FocusSettings
+  ledger: Ledger
+  trendingTopics: TrendingTopic[]
+  trendingSource: TrendingSource
+}
+
+// 把 demoData 转成可编辑的 AppData 初始结构
+// 自媒体创作热点选题池（涵盖流量/生活/知识/情绪/热点/技能六类）
+const TRENDING_POOL: Omit<TrendingTopic, 'id' | 'heat'>[] = [
+  { title: '一个人住的第 30 天，我学会了这件事', angle: '独居 vlog + 情绪转折，结尾给一个生活小顿悟', platform: '小红书', category: 'life', keywords: ['独居', '生活仪式感', '治愈'] },
+  { title: '月薪 5k 和 5w 的女生，周末有什么不同', angle: '对比向，两个真实案例 + 价值观讨论', platform: '抖音', category: 'emotion', keywords: ['消费观', '对比', '女性成长'] },
+  { title: '我用 AI 做自媒体，月涨粉 1 万', angle: '工具实测 + 数据截图，强干货', platform: 'B站', category: 'skill', keywords: ['AI工具', '涨粉', '效率'] },
+  { title: '泰国旅行 7 天只花 3000 块，我是怎么做到的', angle: '省钱攻略 + 路线图 + 真实花销表格', platform: '小红书', category: 'skill', keywords: ['穷游', '泰国', '攻略'] },
+  { title: '下班后的 2 小时，决定了你三年后的样子', angle: '成长类情绪共鸣，配日常片段', platform: '抖音', category: 'emotion', keywords: ['自律', '副业', '成长'] },
+  { title: '今年夏天最火的 3 个穿搭公式', angle: '趋势盘点 + 上身示范，节奏快', platform: '小红书', category: 'trend', keywords: ['穿搭', '夏日', '趋势'] },
+  { title: '为什么年轻人开始流行"City Walk"', angle: '现象解读 + 街采 + 个人观点', platform: 'B站', category: 'trend', keywords: ['CityWalk', '生活方式', '观察'] },
+  { title: '我做自媒体一年，赚了多少钱（真实收入公开）', angle: '真诚透明向，收入截图 + 心路历程', platform: '小红书', category: 'flow', keywords: ['收入', '透明', '自媒体'] },
+  { title: '一条视频涨粉 10 万，我做对了什么', angle: '爆款拆解，从选题到剪辑逐步复盘', platform: '抖音', category: 'flow', keywords: ['爆款', '拆解', '涨粉'] },
+  { title: '每天 10 分钟，我用这个方法记单词', angle: '学习方法实测 + 前后对比', platform: 'B站', category: 'knowledge', keywords: ['学习', '英语', '方法'] },
+  { title: '独居女生的一周早餐，简单又出片', angle: '美食 + 摆盘美学，治愈系', platform: '小红书', category: 'life', keywords: ['早餐', '独居', '出片'] },
+  { title: '别再被这些"养生常识"骗了', angle: '辟谣向科普，逐条反驳', platform: '抖音', category: 'knowledge', keywords: ['辟谣', '养生', '科普'] },
+  { title: '我摆摊一天，赚了多少', angle: '体验式内容，真实记录 + 复盘', platform: '抖音', category: 'flow', keywords: ['摆摊', '体验', '真实'] },
+  { title: '如何在镜头前不紧张？3 个方法', angle: '教学干货，面向新手博主', platform: '小红书', category: 'skill', keywords: ['镜头感', '教程', '新手'] },
+  { title: '那些让你瞬间破防的瞬间', angle: '情绪共鸣合集，配治愈文案', platform: '抖音', category: 'emotion', keywords: ['破防', '共鸣', '治愈'] },
+  { title: '我试着用一周时间戒掉手机', angle: '挑战类 vlog，记录变化', platform: 'B站', category: 'life', keywords: ['戒手机', '挑战', '自律'] },
+  { title: '这个夏天必去的 5 个冷门海岛', angle: '旅行种草 + 实拍 + 避雷', platform: '小红书', category: 'trend', keywords: ['海岛', '旅行', '冷门'] },
+  { title: '用手机拍出电影感，只要这 4 步', angle: '拍摄教学 + 前后对比', platform: '抖音', category: 'skill', keywords: ['运镜', '手机摄影', '教程'] },
+  { title: '当我说"我累了"，其实我在说什么', angle: '深度情绪向，配独白文案', platform: '小红书', category: 'emotion', keywords: ['情绪', '独白', '治愈'] },
+  { title: '今年双 11，我劝你别买这些东西', angle: '反消费主义热点 + 避雷清单', platform: '抖音', category: 'trend', keywords: ['双11', '避雷', '消费'] },
+  { title: '用 AI 帮我规划了一整周的生活', angle: 'AI 实测 + 效率提升前后对比', platform: 'B站', category: 'knowledge', keywords: ['AI', '规划', '效率'] },
+  { title: '一个人吃火锅是什么体验', angle: '孤独美食向，情绪 + 探店', platform: '抖音', category: 'life', keywords: ['一个人', '探店', '治愈'] },
+  { title: '我做博主的第一个 10 万粉，送你一份心法', angle: '成长复盘 + 方法论输出', platform: '小红书', category: 'flow', keywords: ['涨粉', '复盘', '心法'] },
+  { title: '5 个让你立刻变好看的体态调整', angle: '实用干货，演示 + 对比', platform: '小红书', category: 'skill', keywords: ['体态', '变美', '干货'] },
+]
+
+// 从选题池随机抽取 n 条，生成带热度的选题列表（模拟 Agent-Reach 抓取后的轮换）
+function pickTrending(n: number): TrendingTopic[] {
+  const pool = [...TRENDING_POOL]
+  const picked: TrendingTopic[] = []
+  for (let i = 0; i < n && pool.length; i++) {
+    const idx = Math.floor(Math.random() * pool.length)
+    const raw = pool.splice(idx, 1)[0]
+    picked.push({
+      id: 'tp' + Date.now() + i + Math.floor(Math.random() * 1000),
+      ...raw,
+      heat: 60 + Math.floor(Math.random() * 41), // 60-100
+    })
+  }
+  return picked.sort((a, b) => b.heat - a.heat)
+}
+
+// 按关键词过滤选题池，无关键词或无命中时回退全部
+function pickTrendingFiltered(keywords: string[], n: number): TrendingTopic[] {
+  const pool = [...TRENDING_POOL]
+  const lowKws = (keywords || []).map(k => k.toLowerCase().trim()).filter(Boolean)
+  let filtered = pool
+  if (lowKws.length) {
+    filtered = pool.filter(t =>
+      lowKws.some(kw =>
+        t.title.toLowerCase().includes(kw) ||
+        t.keywords.some(tk => tk.toLowerCase().includes(kw))
+      )
+    )
+    if (!filtered.length) filtered = pool
+  }
+  const picked: TrendingTopic[] = []
+  const working = [...filtered]
+  for (let i = 0; i < n && working.length; i++) {
+    const idx = Math.floor(Math.random() * working.length)
+    const raw = working.splice(idx, 1)[0]
+    picked.push({
+      id: 'tp' + Date.now() + i + Math.floor(Math.random() * 1000),
+      ...raw,
+      heat: 60 + Math.floor(Math.random() * 41),
+      source: 'sim',
+      fetchedAt: new Date().toISOString(),
+    })
+  }
+  return picked.sort((a, b) => b.heat - a.heat)
+}
+
+function buildInitialData(): AppData {
+  const d = defaultDemo
+  const allTasks: Task[] = [
+    ...d.top3,
+    ...d.overdueTasks,
+    ...d.reminders.map(r => ({ ...r })),
+  ]
+  return {
+    version: VERSION,
+    tasks: allTasks,
+    inspirations: d.inspirations.map(i => ({ ...i })),
+    projects: d.projects.map(p => structuredCloneSafe(p)),
+      schedules: d.todayTimeline.map(s => ({ ...s, date: todayStr() })),
+    meta: {
+      todayProgress: d.todayProgress,
+      streakDays: d.streakDays,
+      greeting: d.greeting,
+      mood: d.mood,
+    },
+    settings: { avatarText: '玥', displayName: '玥莹' },
+    inboxCleared: d.stats.inboxCleared,
+    weekTrend: [...d.stats.weekTrend],
+    heatmap: [...d.stats.heatmap],
+    weekDist: d.stats.weekDist.map(w => ({ ...w })),
+    focusSessions: [],
+    focusSettings: { pomodoroMin: 25, categories: ['content', 'ai', 'travel', 'health', 'class', 'life'], sound: true, notification: true },
+    ledger: defaultLedger(todayStr()),
+    trendingTopics: pickTrending(8),
+    trendingSource: defaultTrendingSource(),
+  }
+}
+
+function defaultTrendingSource(): TrendingSource {
+  return {
+    keywords: ['AI', '减脂', '独居', '涨粉', '成长', '旅行'],
+    platforms: ['weibo', 'xhs', 'douyin'],
+    bloggers: [],
+    backendUrl: 'http://127.0.0.1:5174',
+    enabled: false,
+  }
+}
+
+// 简易深拷贝（项目里有嵌套对象）
+function structuredCloneSafe<T>(obj: T): T {
+  return JSON.parse(JSON.stringify(obj))
+}
+
+// 账本默认演示数据
+function defaultLedger(today: string): Ledger {
+  return {
+    accounts: [
+      { id: 'a1', name: '现金', kind: 'cash', balance: 1280, updatedAt: today },
+      { id: 'a2', name: '招行储蓄', kind: 'bank', balance: 48620, updatedAt: today },
+      { id: 'a3', name: '支付宝', kind: 'alipay', balance: 9350, updatedAt: today },
+      { id: 'a4', name: '微信零钱', kind: 'wechat', balance: 612, updatedAt: today },
+      { id: 'a5', name: '招行信用卡', kind: 'card', balance: -2340, updatedAt: today },
+      { id: 'a6', name: '相机+镜头', kind: 'asset', balance: 18000, note: '估值', updatedAt: today },
+    ],
+    txns: [
+      { id: 'x1', accountId: 'a2', type: 'income', amount: 8000, category: '工资', date: today, time: '09:30' },
+      { id: 'x2', accountId: 'a3', type: 'expense', amount: 68, category: '餐饮', date: today, time: '12:10' },
+      { id: 'x3', accountId: 'a4', type: 'expense', amount: 23.5, category: '交通', date: today, time: '18:40' },
+    ],
+    snapshots: [{ id: 's1', date: today, netWorth: 75022 }],
+  }
+}
+
+// ===== 订阅机制 =====
+type Listener = () => void
+const listeners = new Set<Listener>()
+let cache: AppData | null = null
+
+function read(): AppData {
+  if (cache) return cache
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY)
+    if (raw) {
+      const parsed = JSON.parse(raw) as Partial<AppData>
+      if (parsed.version === VERSION) {
+        // 字段兼容：旧数据可能缺 weekDist 等后加字段，用默认值补齐，避免 .map 报错白屏
+        const demo = defaultDemo
+        const merged: AppData = {
+          version: VERSION,
+          tasks: parsed.tasks ?? [],
+          inspirations: parsed.inspirations ?? [],
+          projects: parsed.projects ?? [],
+          schedules: (parsed.schedules ?? []).map(s => ({ ...s, date: s.date || todayStr() })),
+          meta: parsed.meta ?? {
+            todayProgress: demo.todayProgress,
+            streakDays: demo.streakDays,
+            greeting: demo.greeting,
+            mood: demo.mood,
+          },
+          settings: parsed.settings ?? { avatarText: '玥', displayName: '玥莹' },
+          inboxCleared: parsed.inboxCleared ?? 0,
+          weekTrend: parsed.weekTrend ?? [],
+          heatmap: parsed.heatmap ?? [],
+          weekDist: parsed.weekDist ?? demo.stats.weekDist.map(w => ({ ...w })),
+          focusSessions: parsed.focusSessions ?? [],
+          focusSettings: parsed.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'travel', 'health', 'class', 'life'], sound: true, notification: true },
+          ledger: parsed.ledger ?? defaultLedger(todayStr()),
+          trendingTopics: parsed.trendingTopics ?? pickTrending(8),
+          trendingSource: parsed.trendingSource ?? defaultTrendingSource(),
+        }
+        cache = merged
+        write(merged)
+        return cache
+      }
+    }
+  } catch { /* ignore */ }
+  const init = buildInitialData()
+  write(init)
+  return init
+}
+
+function write(data: AppData) {
+  cache = data
+  try {
+    localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
+  } catch { /* ignore */ }
+  listeners.forEach(l => l())
+}
+
+// 根据各领域实际完成情况动态计算项目进度
+function recomputeProjectProgress(p: Project): Project {
+  let progress = p.progress
+  if (p.domain === 'content' && p.content) {
+    const stages = ['idea', 'topic', 'script', 'shoot', 'edit', 'publish', 'published']
+    const total = p.content.length
+    progress = total ? Math.round(p.content.reduce((sum, c) => sum + stages.indexOf(c.stage), 0) / (total * (stages.length - 1)) * 100) : 0
+  } else if (p.domain === 'ai' && p.ai?.learning) {
+    const list = p.ai.learning
+    progress = list.length ? Math.round(list.reduce((s, l) => s + (l.progress || 0), 0) / list.length) : 0
+  } else if (p.domain === 'travel' && p.travel?.checklist) {
+    const list = p.travel.checklist
+    const done = list.filter(i => i.status === 'done').length
+    progress = list.length ? Math.round((done / list.length) * 100) : 0
+  } else if (p.domain === 'health' && p.health?.investorSteps) {
+    const steps = p.health.investorSteps
+    const done = steps.filter(s => s.done).length
+    progress = steps.length ? Math.round((done / steps.length) * 100) : 0
+  } else if (p.domain === 'class' && p.classes?.sessions) {
+    const sessions = p.classes.sessions
+    const ready = sessions.filter(s => s.prepareStatus === 'ready').length
+    progress = sessions.length ? Math.round((ready / sessions.length) * 100) : 0
+  } else if (p.domain === 'life' && p.life?.items) {
+    const items = p.life.items
+    const done = items.filter(i => i.status === 'done').length
+    progress = items.length ? Math.round((done / items.length) * 100) : 0
+  }
+  return progress === p.progress ? p : { ...p, progress }
+}
+
+export const store = {
+  get(): AppData { return read() },
+
+  subscribe(l: Listener) { listeners.add(l); return () => listeners.delete(l) },
+
+  // ===== 演示数据 =====
+  resetDemo() { const init = buildInitialData(); write(init) },
+
+  clearAll() { const empty: AppData = { version: VERSION, tasks: [], inspirations: [], projects: [], schedules: [], meta: read().meta, settings: read().settings, inboxCleared: 0, weekTrend: [], heatmap: [], weekDist: [], focusSessions: [], focusSettings: read().focusSettings, ledger: read().ledger, trendingTopics: pickTrending(8), trendingSource: read().trendingSource ?? defaultTrendingSource() }; write(empty) },
+
+  exportJSON(): string { return JSON.stringify(read(), null, 2) },
+
+  importJSON(text: string): boolean {
+    try {
+      const parsed = JSON.parse(text) as AppData
+      if (parsed.version !== VERSION) return false
+      write(parsed)
+      return true
+    } catch { return false }
+  },
+
+  // ===== 任务 =====
+  addTask(t: Partial<Task>): Task {
+    const data = read()
+    const task: Task = {
+      id: 't' + Date.now() + Math.floor(Math.random() * 1000),
+      title: t.title || '新任务',
+      note: t.note,
+      domain: t.domain || 'life',
+      projectId: t.projectId,
+      priority: t.priority || 'medium',
+      suggestedPriority: t.suggestedPriority,
+      dueDate: t.dueDate,
+      dueTime: t.dueTime,
+      estimatedMinutes: t.estimatedMinutes || 30,
+      progress: t.progress || 0,
+      nextAction: t.nextAction,
+      inToday: t.inToday ?? false,
+      inTop3: t.inTop3 ?? false,
+      top3Order: t.top3Order,
+      status: t.status || 'pending',
+      links: t.links,
+      createdAt: new Date().toISOString().slice(0, 10),
+      completedAt: undefined,
+    }
+    write({ ...data, tasks: [...data.tasks, task] })
+    return task
+  },
+  updateTask(id: string, patch: Partial<Task>) {
+    const data = read()
+    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, ...patch } : t) })
+  },
+  deleteTask(id: string) {
+    const data = read()
+    write({ ...data, tasks: data.tasks.filter(t => t.id !== id) })
+  },
+
+  // ===== Top 3 =====
+  toggleTop3(id: string) {
+    const data = read()
+    const t = data.tasks.find(x => x.id === id)
+    if (!t) return
+    if (t.inTop3) {
+      // 移出 top3
+      write({ ...data, tasks: data.tasks.map(x => x.id === id ? { ...x, inTop3: false, top3Order: undefined } : x) })
+    } else {
+      // 加入 top3，序号 = 当前 top3 数量
+      const order = data.tasks.filter(x => x.inTop3).length
+      if (order >= 3) return // 已满
+      write({ ...data, tasks: data.tasks.map(x => x.id === id ? { ...x, inTop3: true, top3Order: order, inToday: true } : x) })
+    }
+  },
+  reorderTop3(orderedIds: string[]) {
+    const data = read()
+    write({
+      ...data,
+      tasks: data.tasks.map(t => {
+        const idx = orderedIds.indexOf(t.id)
+        return idx >= 0 ? { ...t, inTop3: true, top3Order: idx, inToday: true } : { ...t, inTop3: false, top3Order: undefined }
+      }),
+    })
+  },
+
+  // ===== 收集箱 =====
+  addInspiration(content: string, source: Inspiration['source'] = 'manual') {
+    const data = read()
+    const ins: Inspiration = {
+      id: 'i' + Date.now(),
+      content,
+      source,
+      createdAt: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+      archived: false,
+    }
+    write({ ...data, inspirations: [ins, ...data.inspirations] })
+  },
+  deleteInspiration(id: string) {
+    const data = read()
+    write({ ...data, inspirations: data.inspirations.filter(i => i.id !== id) })
+  },
+  archiveInspiration(id: string) {
+    const data = read()
+    const ins = data.inspirations.find(i => i.id === id)
+    if (!ins) return
+    const willArchive = !ins.archived
+    // 归档时若尚未转化为任务，自动转为任务并关联到对应领域项目
+    if (willArchive && !ins.convertedTo) {
+      const domain = ins.domain || 'content'
+      const projectId = data.projects.find(p => p.domain === domain)?.id
+      const task = this.addTask({ title: ins.content, domain, status: 'pending', projectId })
+      const data2 = read()
+      write({ ...data2, inspirations: data2.inspirations.map(i => i.id === id ? { ...i, archived: true, convertedTo: { type: 'task' as const, id: task.id } } : i), inboxCleared: data2.inboxCleared + 1 })
+      return
+    }
+    const next = data.inspirations.map(i => i.id === id ? { ...i, archived: !i.archived } : i)
+    const cleared = !next.find(i => i.id === id)?.archived ? data.inboxCleared : data.inboxCleared + 1
+    write({ ...data, inspirations: next, inboxCleared: cleared })
+  },
+  // 灵感转任务：从收集箱创建任务并归档灵感，自动关联到对应领域项目
+  convertInspiration(id: string, domain: Domain, title?: string) {
+    const data = read()
+    const ins = data.inspirations.find(i => i.id === id)
+    if (!ins) return
+    const projectId = data.projects.find(p => p.domain === domain)?.id
+    const task = this.addTask({ title: title || ins.content, domain, status: 'pending', projectId })
+    const data2 = read()
+    write({ ...data2, inspirations: data2.inspirations.map(i => i.id === id ? { ...i, archived: true, domain, convertedTo: { type: 'task', id: task.id } } : i) })
+    return task
+  },
+
+  // 根据 domain 跳转到对应项目
+  projectIdOfDomain(domain: Domain): string | undefined {
+    return read().projects.find(p => p.domain === domain)?.id
+  },
+
+  // ===== 日程 =====
+  addSchedule(s: Partial<Schedule>): Schedule {
+    const data = read()
+    const sch: Schedule = {
+      id: 's' + Date.now(),
+      title: s.title || '新日程',
+      domain: s.domain || 'life',
+      date: s.date || todayStr(),
+      start: s.start || '09:00',
+      end: s.end || '10:00',
+      repeatRule: s.repeatRule || 'none',
+      projectId: s.projectId,
+      taskId: s.taskId,
+      done: false,
+    }
+    write({ ...data, schedules: [...data.schedules, sch] })
+    return sch
+  },
+  updateSchedule(id: string, patch: Partial<Schedule>) {
+    const data = read()
+    write({ ...data, schedules: data.schedules.map(s => s.id === id ? { ...s, ...patch } : s) })
+  },
+  deleteSchedule(id: string) {
+    const data = read()
+    write({ ...data, schedules: data.schedules.filter(s => s.id !== id) })
+  },
+
+  // ===== 项目 =====
+  updateProject(id: string, patch: Partial<Project>) {
+    const data = read()
+    write({ ...data, projects: data.projects.map(p => p.id === id ? { ...p, ...patch } : p) })
+  },
+
+  // 内容创作：阶段流转
+  moveContentStage(projectId: string, contentId: string, toIndex: number) {
+    const stages = ['idea', 'topic', 'script', 'shoot', 'edit', 'publish', 'published'] as const
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.content) return p
+        const content = p.content.map(c => c.id === contentId ? { ...c, stage: stages[toIndex] } : c)
+        return recomputeProjectProgress({ ...p, content })
+      }),
+    })
+  },
+  addContent(projectId: string, title: string, platform: any = '小红书', stage: any = 'idea') {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId) return p
+        const content = [...(p.content || []), { id: 'c' + Date.now(), title, platform, type: '图文', stage }]
+        return recomputeProjectProgress({ ...p, content })
+      }),
+    })
+  },
+  deleteContent(projectId: string, contentId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.content) return p
+        const content = p.content.filter(c => c.id !== contentId)
+        return recomputeProjectProgress({ ...p, content })
+      }),
+    })
+  },
+
+  // 旅行清单切换
+  toggleTravelItem(projectId: string, itemId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.travel) return p
+        const checklist = p.travel.checklist.map(it => it.id === itemId ? { ...it, status: (it.status === 'done' ? 'pending' : 'done') as 'done' | 'pending' | 'doing' } : it)
+        const done = checklist.filter(i => i.status === 'done').length
+        const overall = Math.round((done / checklist.length) * 100)
+        return recomputeProjectProgress({ ...p, travel: { ...p.travel, checklist, overallProgress: overall } })
+      }),
+    })
+  },
+
+  // 健康投资人步骤切换
+  toggleInvestorStep(projectId: string, stepId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.health) return p
+        const investorSteps = p.health.investorSteps.map(s => s.id === stepId ? { ...s, done: !s.done } : s)
+        return recomputeProjectProgress({ ...p, health: { ...p.health, investorSteps } })
+      }),
+    })
+  },
+
+  // 团课备课切换
+  toggleClassPrep(projectId: string, sessionId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.classes) return p
+        const sessions = p.classes.sessions.map(s => s.id === sessionId ? { ...s, prepareStatus: (s.prepareStatus === 'ready' ? 'todo' : 'ready') as 'todo' | 'ready' } : s)
+        return recomputeProjectProgress({ ...p, classes: { ...p.classes, sessions } })
+      }),
+    })
+  },
+  // 团课照片已发送
+  sendClassPhotos(projectId: string, sessionId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.classes) return p
+        const sessions = p.classes.sessions.map(s => s.id === sessionId ? { ...s, photosUntreated: 0, photosUnsent: 0 } : s)
+        const photosUnsent = sessions.reduce((a, s) => a + s.photosUnsent, 0)
+        const photosUntreated = sessions.reduce((a, s) => a + s.photosUntreated, 0)
+        return { ...p, classes: { ...p.classes, sessions, photosUnsent, photosUntreated } }
+      }),
+    })
+  },
+
+  // 生活杂事切换状态
+  toggleLifeItem(projectId: string, itemId: string) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.life) return p
+        const items = p.life.items.map(it => it.id === itemId ? { ...it, status: it.status === 'done' ? 'pending' as const : 'done' as const } : it)
+        return recomputeProjectProgress({ ...p, life: { items } })
+      }),
+    })
+  },
+
+  // AI 学习进度推进
+  advanceLearning(projectId: string, learningId: string, delta: number) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.ai) return p
+        const learning = p.ai.learning.map(l => l.id === learningId ? { ...l, progress: Math.max(0, Math.min(100, (l.progress || 0) + delta)) } : l)
+        return recomputeProjectProgress({ ...p, ai: { ...p.ai, learning } })
+      }),
+    })
+  },
+
+  // 刷新热点选题：优先调用本地后端真实抓取，失败则用本地模拟池
+  async refreshTrending(): Promise<{ real: boolean; count: number }> {
+    const data = read()
+    const src = data.trendingSource
+    // 未启用真实抓取或后端未配置：走本地模拟池
+    if (!src.enabled || !src.backendUrl) {
+      const picked = pickTrendingFiltered(src.keywords, 8)
+      write({ ...data, trendingTopics: picked })
+      return { real: false, count: picked.length }
+    }
+    try {
+      const params = new URLSearchParams({
+        keywords: src.keywords.join(','),
+        platforms: src.platforms.join(','),
+        fallback: '1',
+      })
+      const res = await fetch(`${src.backendUrl}/api/trending?${params.toString()}`, { method: 'GET' })
+      if (!res.ok) throw new Error('backend ' + res.status)
+      const json = await res.json()
+      const items: TrendingTopic[] = (json.items || []).map((x: any) => ({
+        id: 't' + Date.now() + Math.floor(Math.random() * 10000),
+        title: x.title,
+        angle: x.angle || '结构化拆解',
+        platform: x.platform || '',
+        category: (x.category as TrendingCategory) || 'flow',
+        heat: Number(x.heat) || 50,
+        keywords: x.keywords || [],
+        url: x.url || '',
+        source: x.source === 'real' ? 'real' : 'sim',
+        fetchedAt: new Date().toISOString(),
+      }))
+      const picked = items.length ? items : pickTrendingFiltered(src.keywords, 8)
+      write({ ...data, trendingTopics: picked })
+      return { real: items.length > 0 && items[0].source === 'real', count: picked.length }
+    } catch (e) {
+      const picked = pickTrendingFiltered(src.keywords, 8)
+      write({ ...data, trendingTopics: picked })
+      return { real: false, count: picked.length }
+    }
+  },
+
+  // 更新热点抓取源配置
+  updateTrendingSource(patch: Partial<TrendingSource>) {
+    const data = read()
+    write({ ...data, trendingSource: { ...data.trendingSource, ...patch } })
+  },
+
+  // 新增对标博主
+  addBlogger(b: Omit<BloggerRef, 'id'>) {
+    const data = read()
+    const blogger: BloggerRef = { ...b, id: 'b' + Date.now() + Math.floor(Math.random() * 1000) }
+    write({ ...data, trendingSource: { ...data.trendingSource, bloggers: [...data.trendingSource.bloggers, blogger] } })
+    return blogger
+  },
+
+  removeBlogger(id: string) {
+    const data = read()
+    write({ ...data, trendingSource: { ...data.trendingSource, bloggers: data.trendingSource.bloggers.filter(b => b.id !== id) } })
+  },
+
+  // 把热点选题加入 AI 学习列表
+  addLearningFromTrending(projectId: string, topic: { title: string; platform: string }) {
+    const data = read()
+    write({
+      ...data,
+      projects: data.projects.map(p => {
+        if (p.id !== projectId || !p.ai) return p
+        const learning = [...p.ai.learning, { id: 'l' + Date.now() + Math.floor(Math.random() * 1000), topic: topic.title, source: topic.platform, progress: 0, canToTopic: true }]
+        const stats = { ...p.ai.stats, learning: learning.length }
+        return recomputeProjectProgress({ ...p, ai: { ...p.ai, learning, stats } })
+      }),
+    })
+  },
+
+  // ===== 设置 =====
+  updateSettings(patch: Partial<AppData['settings']>) {
+    const data = read()
+    write({ ...data, settings: { ...data.settings, ...patch } })
+  },
+
+  // ===== 专注会话 =====
+  addFocusSession(s: Partial<FocusSession>): FocusSession {
+    const data = read()
+    const now = new Date()
+    const hh = String(now.getHours()).padStart(2, '0')
+    const mm = String(now.getMinutes()).padStart(2, '0')
+    const sess: FocusSession = {
+      id: 'f' + Date.now(),
+      title: s.title || '专注',
+      domain: s.domain || 'content',
+      taskId: s.taskId,
+      date: s.date || todayStr(),
+      start: s.start || hh + ':' + mm,
+      end: s.end || hh + ':' + mm,
+      plannedMin: s.plannedMin ?? data.focusSettings.pomodoroMin,
+      actualMin: s.actualMin ?? 0,
+      completed: s.completed ?? false,
+      cancelled: s.cancelled ?? false,
+    }
+    write({ ...data, focusSessions: [...data.focusSessions, sess] })
+    return sess
+  },
+  updateFocusSession(id: string, patch: Partial<FocusSession>) {
+    const data = read()
+    write({ ...data, focusSessions: data.focusSessions.map(f => f.id === id ? { ...f, ...patch } : f) })
+  },
+  deleteFocusSession(id: string) {
+    const data = read()
+    write({ ...data, focusSessions: data.focusSessions.filter(f => f.id !== id) })
+  },
+  updateFocusSettings(patch: Partial<FocusSettings>) {
+    const data = read()
+    write({ ...data, focusSettings: { ...data.focusSettings, ...patch } })
+  },
+
+  // ===== 账本 =====
+  addLedgerAccount(a: Partial<LedgerAccount>): LedgerAccount {
+    const data = read()
+    const acc: LedgerAccount = {
+      id: 'a' + Date.now(),
+      name: a.name || '新账户',
+      kind: a.kind || 'cash',
+      balance: a.balance ?? 0,
+      note: a.note,
+      updatedAt: a.updatedAt || todayStr(),
+    }
+    write({ ...data, ledger: { ...data.ledger, accounts: [...data.ledger.accounts, acc] } })
+    return acc
+  },
+  updateLedgerAccount(id: string, patch: Partial<LedgerAccount>) {
+    const data = read()
+    const accounts = data.ledger.accounts.map(a => a.id === id ? { ...a, ...patch, updatedAt: todayStr() } : a)
+    write({ ...data, ledger: { ...data.ledger, accounts } })
+  },
+  deleteLedgerAccount(id: string) {
+    const data = read()
+    write({ ...data, ledger: { ...data.ledger, accounts: data.ledger.accounts.filter(a => a.id !== id), txns: data.ledger.txns.filter(t => t.accountId !== id) } })
+  },
+  addLedgerTxn(t: Partial<LedgerTxn>): LedgerTxn {
+    const data = read()
+    const today = todayStr()
+    const now = new Date()
+    const txn: LedgerTxn = {
+      id: 'x' + Date.now(),
+      accountId: t.accountId || '',
+      type: t.type || 'expense',
+      amount: Math.abs(t.amount ?? 0),
+      category: t.category || '其他',
+      note: t.note,
+      date: t.date || today,
+      time: t.time || String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0'),
+    }
+    // 同步账户余额
+    const accounts = data.ledger.accounts.map(a => {
+      if (a.id !== txn.accountId) return a
+      const delta = txn.type === 'expense' ? -txn.amount : txn.type === 'income' ? txn.amount : txn.amount
+      return { ...a, balance: a.balance + delta, updatedAt: today }
+    })
+    write({ ...data, ledger: { ...data.ledger, accounts, txns: [txn, ...data.ledger.txns] } })
+    return txn
+  },
+  deleteLedgerTxn(id: string) {
+    const data = read()
+    // 回滚余额
+    const txn = data.ledger.txns.find(t => t.id === id)
+    let accounts = data.ledger.accounts
+    if (txn) {
+      accounts = accounts.map(a => {
+        if (a.id !== txn.accountId) return a
+        const delta = txn.type === 'expense' ? txn.amount : txn.type === 'income' ? -txn.amount : -txn.amount
+        return { ...a, balance: a.balance + delta }
+      })
+    }
+    write({ ...data, ledger: { ...data.ledger, accounts, txns: data.ledger.txns.filter(t => t.id !== id) } })
+  },
+  saveLedgerSnapshot() {
+    const data = read()
+    const today = todayStr()
+    const netWorth = data.ledger.accounts.reduce((a, x) => a + x.balance, 0)
+    const existing = data.ledger.snapshots.find(s => s.date === today)
+    const snapshots = existing
+      ? data.ledger.snapshots.map(s => s.date === today ? { ...s, netWorth } : s)
+      : [...data.ledger.snapshots, { id: 's' + Date.now(), date: today, netWorth }]
+    write({ ...data, ledger: { ...data.ledger, snapshots } })
+  },
+}

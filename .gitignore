@@ -1,0 +1,14 @@
+node_modules/
+dist/
+.venv/
+__pycache__/
+*.pyc
+.catpaw/
+_shots/
+_pwa_shots/
+_pwa_check.mjs
+_pwa_meta.mjs
+*.log
+.DS_Store
+Thumbs.db
+tsconfig.tsbuildinfo

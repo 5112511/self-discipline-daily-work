@@ -1,0 +1,146 @@
+import React, { useState } from 'react'
+import type { Task, Domain, Priority, TaskStatus } from '../types'
+import { DOMAIN_LABEL, DOMAIN_ICON } from '../types'
+import { store } from '../store'
+import { useToast } from './Toast'
+
+const DOMAINS: Domain[] = ['content', 'ai', 'travel', 'health', 'class', 'life']
+const PRIORITIES: Priority[] = ['high', 'medium', 'low']
+const STATUSES: TaskStatus[] = ['inbox', 'pending', 'doing', 'waiting', 'done', 'cancelled']
+
+export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task | null; onClose: () => void }) {
+  const toast = useToast()
+  const isEdit = !!task
+  const [form, setForm] = useState<Partial<Task>>(
+    task || { title: '', domain: 'life', priority: 'medium', status: 'pending', estimatedMinutes: 30, progress: 0, dueDate: '今天', nextAction: '' }
+  )
+
+  // 当 task 变化时重置表单（编辑不同任务）
+  React.useEffect(() => {
+    setForm(task || { title: '', domain: 'life', priority: 'medium', status: 'pending', estimatedMinutes: 30, progress: 0, dueDate: '今天', nextAction: '' })
+  }, [task, open])
+
+  if (!open) return null
+
+  const set = (k: keyof Task, v: any) => setForm(f => ({ ...f, [k]: v }))
+
+  const save = () => {
+    if (!form.title?.trim()) { toast('请填写任务标题'); return }
+    if (isEdit && task) {
+      store.updateTask(task.id, form)
+      toast('已更新任务')
+    } else {
+      store.addTask(form)
+      toast('已新建任务')
+    }
+    onClose()
+  }
+
+  const del = () => {
+    if (!task) return
+    store.deleteTask(task.id)
+    toast('已删除任务')
+    onClose()
+  }
+
+  const complete = () => {
+    if (!task) return
+    store.updateTask(task.id, { status: 'done', progress: 100, completedAt: new Date().toISOString().slice(0, 10) })
+    toast('已完成 ✓')
+    onClose()
+  }
+
+  return (
+    <div className="sheet-mask" onClick={onClose}>
+      <div className="sheet task-sheet" onClick={(e) => e.stopPropagation()}>
+        <div className="sheet-handle" />
+        <div className="sheet-head">
+          <button className="t-sub tap" onClick={onClose}>取消</button>
+          <div className="t-h3">{isEdit ? '编辑任务' : '新建任务'}</div>
+          <button className="t-sub tap" style={{ color: 'var(--ink)', fontWeight: 600 }} onClick={save}>保存</button>
+        </div>
+
+        <div className="task-form">
+          <label className="tf-label">标题 *</label>
+          <input className="tf-input" value={form.title || ''} onChange={(e) => set('title', e.target.value)} placeholder="一个明确的下一步行动" />
+
+          <label className="tf-label">详细说明</label>
+          <textarea className="tf-input tf-area" value={form.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="可选" rows={2} />
+
+          <label className="tf-label">所属领域</label>
+          <div className="tf-chips">
+            {DOMAINS.map(d => (
+              <button key={d} className={'chip ' + (form.domain === d ? 'chip-dark' : 'line') + ' tap'} onClick={() => set('domain', d)}>
+                {DOMAIN_ICON[d]} {DOMAIN_LABEL[d]}
+              </button>
+            ))}
+          </div>
+
+          <div className="tf-row2">
+            <div>
+              <label className="tf-label">优先级</label>
+              <div className="tf-chips">
+                {PRIORITIES.map(p => (
+                  <button key={p} className={'chip ' + (form.priority === p ? 'chip-dark' : 'line') + ' tap'} onClick={() => set('priority', p)}>
+                    {p === 'high' ? '高' : p === 'medium' ? '中' : '低'}
+                  </button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <label className="tf-label">状态</label>
+              <div className="tf-chips">
+                {STATUSES.map(s => (
+                  <button key={s} className={'chip ' + (form.status === s ? 'chip-dark' : 'line') + ' tap'} onClick={() => set('status', s)}>
+                    {s === 'inbox' ? '收集箱' : s === 'pending' ? '待处理' : s === 'doing' ? '进行中' : s === 'waiting' ? '等待中' : s === 'done' ? '已完成' : '已取消'}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+
+          <div className="tf-row2">
+            <div>
+              <label className="tf-label">截止日期</label>
+              <input className="tf-input" value={form.dueDate || ''} onChange={(e) => set('dueDate', e.target.value)} placeholder="今天/8月5日" />
+            </div>
+            <div>
+              <label className="tf-label">截止时间</label>
+              <input className="tf-input" value={form.dueTime || ''} onChange={(e) => set('dueTime', e.target.value)} placeholder="18:00" />
+            </div>
+          </div>
+
+          <div className="tf-row2">
+            <div>
+              <label className="tf-label">预计用时（分钟）</label>
+              <input className="tf-input mono" type="number" value={form.estimatedMinutes ?? 30} onChange={(e) => set('estimatedMinutes', +e.target.value)} />
+            </div>
+            <div>
+              <label className="tf-label">进度（%）</label>
+              <input className="tf-input mono" type="number" min={0} max={100} value={form.progress ?? 0} onChange={(e) => set('progress', Math.max(0, Math.min(100, +e.target.value)))} />
+            </div>
+          </div>
+
+          <label className="tf-label">下一步行动</label>
+          <input className="tf-input" value={form.nextAction || ''} onChange={(e) => set('nextAction', e.target.value)} placeholder="拆成清晰可执行的下一步" />
+
+          <div className="tf-row2">
+            <button className="chip line tap" onClick={() => set('inToday', !form.inToday)} style={form.inToday ? { background: 'var(--ink)', color: '#fff', borderColor: 'var(--ink)' } : {}}>
+              {form.inToday ? '✓ 加入今日' : '加入今日'}
+            </button>
+            <button className="chip line tap" onClick={() => set('inTop3', !form.inTop3)} style={form.inTop3 ? { background: 'var(--ink)', color: '#fff', borderColor: 'var(--ink)' } : {}}>
+              {form.inTop3 ? '✓ 加入 Top 3' : '加入 Top 3'}
+            </button>
+          </div>
+        </div>
+
+        {isEdit && (
+          <div className="task-form-actions">
+            <button className="confirm-btn" onClick={complete}>标记完成</button>
+            <button className="confirm-btn danger ghost" onClick={del}>删除</button>
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
