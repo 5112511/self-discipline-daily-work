@@ -8,7 +8,7 @@ import { domainColor } from '../palette'
 
 const CONTENT_STAGES: ContentStage[] = ['idea', 'topic', 'script', 'shoot', 'edit', 'publish', 'published']
 
-export function ProjectDetailPage({ projectId, onBack }: { projectId: string; onBack: () => void }) {
+export function ProjectDetailPage({ projectId, onBack, onEditTask }: { projectId: string; onBack: () => void; onEditTask: (task: import('../types').Task) => void }) {
   const data = useStore()
   const toast = useToast()
   const p = data.projects.find(x => x.id === projectId)
@@ -56,13 +56,13 @@ export function ProjectDetailPage({ projectId, onBack }: { projectId: string; on
       {/* 各领域完整内容 */}
       {p.domain === 'content' && <ContentDetail p={p} moveContent={moveContent} toast={toast} />}
       {p.domain === 'ai' && <AiDetail p={p} toast={toast} />}
-      {p.domain === 'travel' && <TravelDetail p={p} toast={toast} />}
       {p.domain === 'health' && <HealthDetail p={p} toast={toast} />}
       {p.domain === 'class' && <ClassDetail p={p} toast={toast} />}
+      {p.domain === 'work' && <WorkDetail p={p} />}
       {p.domain === 'life' && <LifeDetail p={p} toast={toast} />}
 
       {/* 来自收集箱的任务 */}
-      <ProjectTasks p={p} toast={toast} />
+      <ProjectTasks p={p} toast={toast} onEditTask={onEditTask} />
 
       <div style={{ height: 8 }} />
     </div>
@@ -148,36 +148,6 @@ function AiDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
   )
 }
 
-function TravelDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
-  return (
-    <>
-      <div className="card card-pad travel-hero" style={{ marginBottom: 10 }}>
-        <div className="travel-count">
-          <div className="travel-days mono">{p.countdownDays}</div>
-          <div className="travel-days-label">天后出发</div>
-        </div>
-        <div className="travel-dep">
-          <div className="t-body">{p.travel!.departure}</div>
-          <div className="t-cap">准备进度 {p.travel!.overallProgress}% · 行李 {p.travel!.bagProgress}%</div>
-          <div className="bar" style={{ marginTop: 6 }}><i style={{ width: `${p.travel!.overallProgress}%` }} /></div>
-        </div>
-      </div>
-      <div className="card">
-        {p.travel!.checklist.map((it, i) => (
-          <div key={it.id} className={'tr-row' + (i < p.travel!.checklist.length - 1 ? ' b' : '')}>
-            <span className={'tr-check' + (it.status === 'done' ? ' done' : '')} onClick={() => { store.toggleTravelItem(p.id, it.id); toast(it.status === 'done' ? '已取消完成' : '已完成 ✓') }}>{it.status === 'done' ? '✓' : ''}</span>
-            <div style={{ flex: 1, minWidth: 0 }}>
-              <div className="t-body">{it.name}</div>
-              <div className="t-cap">{it.status === 'done' ? '已完成' : it.status === 'doing' ? '进行中' : '待处理'}{it.budget ? ` · ${it.budget}` : ''}{it.dueDate ? ` · ${it.dueDate}` : ''}</div>
-              {it.nextAction && <div className="t-sub" style={{ marginTop: 2 }}>→ {it.nextAction}</div>}
-            </div>
-          </div>
-        ))}
-      </div>
-    </>
-  )
-}
-
 function HealthDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
   return (
     <div className="card card-pad">
@@ -217,9 +187,9 @@ function ClassDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
   return (
     <div className="card card-pad">
       <div className="class-stats">
-        <div><span className="t-h2 mono">{p.classes!.weekCount}</span><span className="t-cap">本周课程</span></div>
-        <div><span className="t-h2 mono">{p.classes!.photosUnsent}</span><span className="t-cap">照片待发</span></div>
-        <div><span className="t-h2 mono">{p.classes!.sessions.filter(s => s.prepareStatus === 'todo').length}</span><span className="t-cap">需备课</span></div>
+        <div><span className="t-h2 mono">{p.classes!.weekCount}</span><span className="t-cap">本周练习</span></div>
+        <div><span className="t-h2 mono">{p.classes!.photosUnsent}</span><span className="t-cap">作品待归档</span></div>
+        <div><span className="t-h2 mono">{p.classes!.sessions.filter(s => s.prepareStatus === 'todo').length}</span><span className="t-cap">需练习</span></div>
       </div>
       <div className="divider" />
       {p.classes!.sessions.map((s, i) => (
@@ -227,12 +197,12 @@ function ClassDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
           <div style={{ flex: 1, minWidth: 0 }}>
             <div className="t-body">{s.name} · {s.weekday} {s.time}</div>
             <div className="t-cap">{s.place}</div>
-            {s.photosUnsent > 0 && <div className="t-sub" style={{ color: 'var(--ink-2)' }}>→ 整理并发送 {s.photosUnsent} 张课后照片</div>}
+            {s.photosUnsent > 0 && <div className="t-sub" style={{ color: 'var(--ink-2)' }}>→ 整理并归档 {s.photosUnsent} 份练习作品</div>}
             {s.nextClass && <div className="t-sub">→ {s.nextClass}</div>}
           </div>
           <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-            <button className={'chip tap ' + (s.prepareStatus === 'todo' ? 'chip-dark' : 'line')} onClick={() => { store.toggleClassPrep(p.id, s.id); toast(s.prepareStatus === 'todo' ? '已标记备课完成' : '需重新备课') }}>{s.prepareStatus === 'todo' ? '待备课' : '已备课'}</button>
-            {s.photosUnsent > 0 && <button className="chip line tap" onClick={() => { store.sendClassPhotos(p.id, s.id); toast('已发送课后照片 ✓') }}>发送照片</button>}
+            <button className={'chip tap ' + (s.prepareStatus === 'todo' ? 'chip-dark' : 'line')} onClick={() => { store.toggleClassPrep(p.id, s.id); toast(s.prepareStatus === 'todo' ? '已标记练习完成' : '需重新练习') }}>{s.prepareStatus === 'todo' ? '待练习' : '已练习'}</button>
+            {s.photosUnsent > 0 && <button className="chip line tap" onClick={() => { store.sendClassPhotos(p.id, s.id); toast('已归档练习作品 ✓') }}>归档作品</button>}
           </div>
         </div>
       ))}
@@ -256,7 +226,25 @@ function LifeDetail({ p, toast }: { p: Project; toast: (s: string) => void }) {
   )
 }
 
-function ProjectTasks({ p, toast }: { p: Project; toast: (s: string) => void }) {
+function WorkDetail({ p }: { p: Project }) {
+  return (
+    <div className="card card-pad">
+      <div className="section-head"><span className="section-title">工作会议</span></div>
+      {(p.work?.meetings || []).map(m => (
+        <div key={m.id} className="life-row b">
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <div className="t-body">{m.title}</div>
+            <div className="t-cap">{m.date} {m.start}-{m.end} · {m.location || '未设置地点'}</div>
+            <div className="t-cap">对接人：{m.contact || '未设置'}{m.note ? ` · ${m.note}` : ''}</div>
+          </div>
+        </div>
+      ))}
+      {(p.work?.meetings || []).length === 0 && <div className="t-cap">暂无工作会议</div>}
+    </div>
+  )
+}
+
+function ProjectTasks({ p, toast, onEditTask }: { p: Project; toast: (s: string) => void; onEditTask: (task: import('../types').Task) => void }) {
   const data = useStore()
   const tasks = data.tasks.filter(t => t.projectId === p.id)
   if (tasks.length === 0) return null
@@ -285,6 +273,9 @@ function ProjectTasks({ p, toast }: { p: Project; toast: (s: string) => void }) 
           <span className="t-cap" style={{ marginLeft: 8, flex: 'none' }}>
             {t.priority === 'high' ? '高优' : t.priority === 'medium' ? '中优' : ''}
           </span>
+          <button className="chip line tap" onClick={(e) => { e.stopPropagation(); onEditTask(t) }}>详情</button>
+          {t.note && <div className="t-cap" style={{ width: '100%', paddingLeft: 30 }}>备注：{t.note}</div>}
+          {(t.meetingLocation || t.meetingContact || t.completionNote) && <div className="t-cap" style={{ width: '100%', paddingLeft: 30 }}>{t.meetingLocation && `地点：${t.meetingLocation} `}{t.meetingContact && `对接人：${t.meetingContact} `}{t.completionNote && `收获：${t.completionNote}`}</div>}
         </div>
       ))}
     </div>

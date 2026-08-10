@@ -14,3 +14,4 @@ Thumbs.db
 tsconfig.tsbuildinfo
 personal-os/
 backend/
+.vercel

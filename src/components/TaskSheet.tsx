@@ -3,13 +3,15 @@ import type { Task, Domain, Priority, TaskStatus } from '../types'
 import { DOMAIN_LABEL, DOMAIN_ICON } from '../types'
 import { store } from '../store'
 import { useToast } from './Toast'
+import { useStore } from '../useStore'
 
-const DOMAINS: Domain[] = ['content', 'ai', 'travel', 'health', 'class', 'life']
+const DOMAINS: Domain[] = ['content', 'ai', 'health', 'class', 'work', 'life']
 const PRIORITIES: Priority[] = ['high', 'medium', 'low']
 const STATUSES: TaskStatus[] = ['inbox', 'pending', 'doing', 'waiting', 'done', 'cancelled']
 
 export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task | null; onClose: () => void }) {
   const toast = useToast()
+  const data = useStore()
   const isEdit = !!task
   const [form, setForm] = useState<Partial<Task>>(
     task || { title: '', domain: 'life', priority: 'medium', status: 'pending', estimatedMinutes: 30, progress: 0, dueDate: '今天', nextAction: '' }
@@ -30,7 +32,8 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
       store.updateTask(task.id, form)
       toast('已更新任务')
     } else {
-      store.addTask(form)
+      const projectId = form.projectId || data.projects.find(p => p.domain === form.domain)?.id
+      store.addTask({ ...form, projectId })
       toast('已新建任务')
     }
     onClose()
@@ -45,7 +48,7 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
 
   const complete = () => {
     if (!task) return
-    store.updateTask(task.id, { status: 'done', progress: 100, completedAt: new Date().toISOString().slice(0, 10) })
+    store.updateTask(task.id, { status: 'done', progress: 100, completedAt: new Date().toISOString().slice(0, 10), completionNote: form.completionNote })
     toast('已完成 ✓')
     onClose()
   }
@@ -64,8 +67,26 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
           <label className="tf-label">标题 *</label>
           <input className="tf-input" value={form.title || ''} onChange={(e) => set('title', e.target.value)} placeholder="一个明确的下一步行动" />
 
-          <label className="tf-label">详细说明</label>
-          <textarea className="tf-input tf-area" value={form.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="可选" rows={2} />
+          <label className="tf-label">备注 / 会议记录</label>
+          <textarea className="tf-input tf-area" value={form.note || ''} onChange={(e) => set('note', e.target.value)} placeholder="地点、会议议题、执行说明等" rows={3} />
+
+          <div className="tf-row2">
+            <div>
+              <label className="tf-label">会议地点</label>
+              <input className="tf-input" value={form.meetingLocation || ''} onChange={(e) => set('meetingLocation', e.target.value)} placeholder="线上 / 会议室" />
+            </div>
+            <div>
+              <label className="tf-label">对接人</label>
+              <input className="tf-input" value={form.meetingContact || ''} onChange={(e) => set('meetingContact', e.target.value)} placeholder="姓名 / 团队" />
+            </div>
+          </div>
+
+          {isEdit && (
+            <>
+              <label className="tf-label">完成收获 / 感想</label>
+              <textarea className="tf-input tf-area" value={form.completionNote || ''} onChange={(e) => set('completionNote', e.target.value)} placeholder="完成后记录收获、结论和下一步" rows={3} />
+            </>
+          )}
 
           <label className="tf-label">所属领域</label>
           <div className="tf-chips">
@@ -75,6 +96,12 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
               </button>
             ))}
           </div>
+
+          <label className="tf-label">所属项目</label>
+          <select className="tf-input" value={form.projectId || ''} onChange={(e) => set('projectId', e.target.value || undefined)}>
+            <option value="">按领域自动归属</option>
+            {data.projects.filter(p => p.domain === form.domain).map(p => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
 
           <div className="tf-row2">
             <div>

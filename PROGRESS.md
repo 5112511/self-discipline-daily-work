@@ -1,4 +1,4 @@
-# 进度快照 · 蕾蕾 OS PWA
+# 进度快照 · 玥莹 Personal OS PWA
 
 > 时间：2026-07-31
 > 状态：PWA 配置 + HTTPS 公网链接 已完成并验证通过
@@ -35,7 +35,7 @@ https://eclipse-blah-wild-criticism.trycloudflare.com
 
 ### manifest 关键配置
 - `name`: "玥莹 Personal OS"
-- `short_name`: "蕾蕾 OS"
+- `short_name`: "Personal OS"
 - `display`: "standalone"
 - `orientation`: "portrait"
 - `theme_color`: "#1a1a1a"（墨黑，主色）
@@ -46,7 +46,7 @@ https://eclipse-blah-wild-criticism.trycloudflare.com
 - `viewport` 带 `viewport-fit=cover`（适配刘海/灵动岛）
 - `apple-mobile-web-app-capable=yes` + `mobile-web-app-capable=yes`
 - `apple-mobile-web-app-status-bar-style=black-translucent`（沉浸式状态栏）
-- `apple-mobile-web-app-title=蕾蕾 OS`
+- `apple-mobile-web-app-title=Personal OS`
 - `apple-touch-icon` 指向 180 图标
 - 内联 SW 注册脚本
 
@@ -77,7 +77,7 @@ https://eclipse-blah-wild-criticism.trycloudflare.com
 
 1. Safari 打开上面的 HTTPS 链接
 2. 点底部「分享」→「添加到主屏幕」
-3. 桌面出现"蕾蕾 OS"图标（黑底白字"玥"）
+3. 桌面出现“Personal OS”图标（黑底白字“玥”）
 4. 点开 → 全屏独立运行，无地址栏，沉浸状态栏
 
 ---

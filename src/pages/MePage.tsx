@@ -157,13 +157,14 @@ function Heatmap({ data }: { data: number[] }) {
   )
 }
 
-export function MePage() {
+export function MePage({ auth, onExitOffline }: { auth?: { user: { id: string; email: string } | null; signOut: () => Promise<void>; isConfigured: boolean }; onExitOffline?: () => void }) {
   const data = useStore()
   const toast = useToast()
   const confirm = useConfirm()
   const { open: openFocus } = useFocus()
   const { open: openDrawer } = useDrawer()
   const fileRef = useRef<HTMLInputElement>(null)
+  const [syncing, setSyncing] = useState(false)
 
   const tasks = data.tasks
   const doneThisWeek = tasks.filter(t => t.status === 'done').length
@@ -209,10 +210,37 @@ export function MePage() {
         <div className="avatar" style={{ width: 64, height: 64, fontSize: 22 }}>{data.settings.avatarText}</div>
         <div style={{ flex: 1 }}>
           <div className="t-h2">{data.settings.displayName}</div>
-          <div className="t-sub">多重身份 · 内容创作 / AI 学习 / 团课教学</div>
+          <div className="t-sub">多重身份 · 内容创作 / AI 学习 / 技能提升</div>
           <div className="t-cap" style={{ marginTop: 4 }}>已连续 {data.meta.streakDays} 天使用 Personal OS</div>
         </div>
         <button className="chip line tap" onClick={() => toast('上传照片功能第三版')}>更换照片</button>
+      </div>
+
+      {/* 账户与云同步 */}
+      <div className="card card-pad" style={{ display: 'flex', flexDirection: 'column', gap: 10 }}>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <span className="icn-box dark" style={{ width: 28, height: 28 }}><IconLock size={14} /></span>
+          <span className="t-body" style={{ fontWeight: 600 }}>账户与同步</span>
+          <span className="chip line" style={{ marginLeft: 'auto' }}>
+            {auth?.user ? (syncing ? '同步中…' : '已同步') : '离线'}
+          </span>
+        </div>
+        {auth?.user ? (
+          <>
+            <div className="t-cap">{auth.user.email} · 数据云端托管</div>
+            <div style={{ display: 'flex', gap: 8 }}>
+              <button className="tap chip line" style={{ flex: 1, justifyContent: 'center' }} onClick={async () => { setSyncing(true); const { syncFromCloud } = await import('../store'); const r = await syncFromCloud(); setSyncing(false); toast(r.ok ? '已同步' : '同步失败：' + r.error) }}>
+                <IconRefresh size={13} /> 立即同步
+              </button>
+              <button className="tap chip line" style={{ flex: 1, justifyContent: 'center', color: 'var(--danger)' }} onClick={async () => { const ok = await confirm({ title: '退出登录？', message: '退出后数据仍保留在云端，重新登录即可恢复。', confirmText: '退出' }); if (ok) { await auth.signOut(); toast('已退出登录') } }}>退出登录</button>
+            </div>
+          </>
+        ) : (
+          <>
+            <div className="t-cap">离线模式 · 数据仅存本设备</div>
+            <button className="tap chip chip-dark" style={{ justifyContent: 'center' }} onClick={() => onExitOffline?.()}>登录云同步 ›</button>
+          </>
+        )}
       </div>
 
       {/* 专注模式入口 */}

@@ -13,7 +13,7 @@ const SOURCE_LABEL: Record<InspirationSource, string> = {
 const SOURCE_ICON: Record<InspirationSource, string> = {
   manual: '✎', voice: '🎙', gmail: '✉', image: '▦', web: '⌘', other: '•',
 }
-const DOMAINS: Domain[] = ['content', 'ai', 'travel', 'health', 'class', 'life']
+const DOMAINS: Domain[] = ['content', 'ai', 'health', 'class', 'work', 'life']
 
 export function InboxPage({ onOpenProject }: { onOpenProject?: (projectId: string) => void } = {}) {
   const data = useStore()

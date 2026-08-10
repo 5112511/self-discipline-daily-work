@@ -7,7 +7,7 @@ import { useToast } from '../components/Toast'
 import { domainColor } from '../palette'
 
 const DOMAIN_COLOR: Record<Domain, string> = Object.fromEntries(
-  (['content', 'ai', 'travel', 'health', 'class', 'life'] as Domain[]).map(d => [d, domainColor(d).ink])
+  (['content', 'ai', 'health', 'class', 'work', 'life'] as Domain[]).map(d => [d, domainColor(d).ink])
 ) as Record<Domain, string>
 
 const CATEGORY_COLOR: Record<TrendingCategory, string> = {

@@ -1,4 +1,4 @@
-import React, { useState, useCallback } from 'react'
+import React, { useState, useCallback, useEffect } from 'react'
 import { TabBar, FabButton, ActionSheet, type TabKey } from './components/TabBar'
 import { TodayPage } from './pages/TodayPage'
 import { ProjectPage } from './pages/ProjectPage'
@@ -6,14 +6,20 @@ import { SchedulePage } from './pages/SchedulePage'
 import { InboxPage } from './pages/InboxPage'
 import { MePage } from './pages/MePage'
 import { ConfirmProvider } from './components/ConfirmSheet'
-import { ToastProvider } from './components/Toast'
+import { ToastProvider, useToast } from './components/Toast'
 import { TaskSheet } from './components/TaskSheet'
 import { FocusOverlay } from './components/FocusOverlay'
 import { SideDrawer, type DrawerItem } from './components/SideDrawer'
 import { LedgerPage } from './pages/LedgerPage'
 import { TrendingPage } from './pages/TrendingPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
-import type { Task } from './types'
+import { HistoryPage } from './pages/HistoryPage'
+import { AuthPage } from './pages/AuthPage'
+import { useAuth } from './lib/auth'
+import { ErrorBoundary } from './components/ErrorBoundary'
+import { store, onTaskDone, type DoneLogEvent } from './store'
+import { todayYmd } from './calendar'
+import type { Task, Domain } from './types'
 import { IconCheck, IconBulb, IconNote, IconCalendar, IconFolder, IconPhoto, IconMenu } from './components/Icons'
 
 // 全局任务表单上下文：任意页面可打开"新建/编辑任务"
@@ -31,14 +37,85 @@ export const useFocus = () => React.useContext(FocusCtx)
 export const DrawerCtx = React.createContext<{ open: () => void; close: () => void }>({ open: () => {}, close: () => {} })
 export const useDrawer = () => React.useContext(DrawerCtx)
 
+// 完成任务时询问“什么时候做的”并录入日历
+function DoneLogPrompt() {
+  const toast = useToast()
+  const [pending, setPending] = useState<DoneLogEvent | null>(null)
+  const [form, setForm] = useState({ date: todayYmd(), start: '14:00', end: '15:00' })
+
+  useEffect(() => {
+    const off = onTaskDone((e) => {
+      setForm({ date: todayYmd(), start: nowHm(), end: nowHm(60) })
+      setPending(e)
+    })
+    return () => { off() }
+  }, [])
+
+  if (!pending) return null
+
+  const save = () => {
+    store.addSchedule({
+      title: pending.title,
+      domain: pending.domain as Domain,
+      date: form.date,
+      start: form.start,
+      end: form.end,
+      taskId: pending.taskId,
+      done: true,
+    })
+    toast('已录入日历 ✓')
+    setPending(null)
+  }
+  const skipIt = () => { setPending(null) }
+
+  return (
+    <div className="sheet-mask show" onClick={skipIt}>
+      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ paddingTop: 8 }}>
+        <div className="sheet-handle" />
+        <div className="sheet-head">
+          <div className="t-h3">记录完成时间</div>
+          <button className="t-sub tap" onClick={skipIt}>跳过</button>
+        </div>
+        <div className="task-form">
+          <div className="t-sub" style={{ marginBottom: 8 }}>「{pending.title}」什么时候完成的？</div>
+          <label className="tf-label">日期</label>
+          <input className="tf-input mono" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
+          <div className="tf-row2">
+            <div>
+              <label className="tf-label">开始</label>
+              <input className="tf-input mono" type="time" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
+            </div>
+            <div>
+              <label className="tf-label">结束</label>
+              <input className="tf-input mono" type="time" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
+            </div>
+          </div>
+          <button className="confirm-btn" onClick={save}>录入日历</button>
+          <button className="chip line tap" style={{ marginTop: 8, width: '100%' }} onClick={skipIt}>不记录</button>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function nowHm(addMin = 0): string {
+  const d = new Date()
+  const total = d.getHours() * 60 + d.getMinutes() + addMin
+  const h = Math.floor(total / 60) % 24
+  const m = total % 60
+  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
+}
+
 export default function App() {
+  const auth = useAuth()
   const initial = (typeof location !== 'undefined' && location.hash.replace('#', '')) as TabKey
   const [tab, setTab] = useState<TabKey>(['today', 'project', 'schedule', 'inbox', 'me'].includes(initial) ? initial : 'today')
   const [sheet, setSheet] = useState(false)
   const [taskSheet, setTaskSheet] = useState<{ open: boolean; task: Task | null }>({ open: false, task: null })
   const [focus, setFocus] = useState<{ open: boolean; taskId?: string }>({ open: false })
   const [drawer, setDrawer] = useState(false)
-  const [extraView, setExtraView] = useState<null | 'ledger' | 'trending' | { view: 'project'; projectId: string }>(null)
+  const [extraView, setExtraView] = useState<null | 'ledger' | 'trending' | 'history' | { view: 'project'; projectId: string }>(null)
+  const [offlineMode, setOfflineMode] = useState(!auth.isConfigured && !auth.user)
 
   // 切换 tab 时关闭额外视图
   const switchTab = useCallback((k: TabKey) => { setTab(k); setExtraView(null) }, [])
@@ -67,6 +144,7 @@ export default function App() {
     else if (k === 'schedule') { switchTab('schedule') }
     else if (k === 'ledger') { setExtraView('ledger') }
     else if (k === 'trending') { setExtraView('trending') }
+    else if (k === 'history') { setExtraView('history') }
   }
 
   const openProjectDetail = useCallback((projectId: string) => setExtraView({ view: 'project', projectId }), [])
@@ -80,30 +158,33 @@ export default function App() {
   }
 
   return (
+    <ErrorBoundary>
     <ConfirmProvider>
       <ToastProvider>
         <TaskSheetCtx.Provider value={{ openNew, openEdit }}>
         <FocusCtx.Provider value={{ open: openFocus, close: closeFocus }}>
         <DrawerCtx.Provider value={{ open: openDrawer, close: closeDrawer }}>
+          {/* 未登录且未选离线模式：显示登录页 */}
+          {!auth.user && !offlineMode ? (
+            <AuthPage
+              onAuthed={(id, email) => { auth.signIn(id, email); setOfflineMode(false) }}
+              onOffline={() => setOfflineMode(true)}
+            />
+          ) : (
           <div className="phone-shell">
             <div className="app">
-              <div className="statusbar">
-                <button className="sb-menu tap" onClick={openDrawer} aria-label="账本"><IconMenu size={20} /></button>
-                <span className="mono">9:41</span>
-                <div className="statusbar-notch" />
-                <span className="statusbar-right">
-                  <span className="sb-sig" /> <span className="sb-wifi" /> <span className="sb-bat" />
-                </span>
-              </div>
+              {/* 悬浮菜单按钮：固定在左上角，透明玻璃质感椭圆 */}
+              <button className="fab-menu tap" onClick={openDrawer} aria-label="菜单"><IconMenu size={20} /></button>
 
               {extraView === 'ledger' && <LedgerPage onBack={closeExtra} />}
               {extraView === 'trending' && <TrendingPage onBack={closeExtra} />}
-              {extraView && (extraView as { view: string }).view === 'project' && <ProjectDetailPage projectId={(extraView as { projectId: string }).projectId} onBack={closeExtra} />}
-              {!extraView && tab === 'today' && <TodayPage onSwitchTab={switchTab} />}
+              {extraView === 'history' && <HistoryPage onBack={closeExtra} />}
+              {extraView && (extraView as { view: string }).view === 'project' && <ProjectDetailPage projectId={(extraView as { projectId: string }).projectId} onBack={closeExtra} onEditTask={openEdit} />}
+              {!extraView && tab === 'today' && <TodayPage onSwitchTab={switchTab} onOpenHistory={() => setExtraView('history')} />}
               {!extraView && tab === 'project' && <ProjectPage onOpenDetail={openProjectDetail} />}
               {!extraView && tab === 'schedule' && <SchedulePage />}
               {!extraView && tab === 'inbox' && <InboxPage onOpenProject={openProjectDetail} />}
-              {!extraView && tab === 'me' && <MePage />}
+              {!extraView && tab === 'me' && <MePage auth={auth} onExitOffline={() => setOfflineMode(false)} />}
             </div>
 
             {extraView ? null : <FabButton onClick={() => setSheet(true)} />}
@@ -120,11 +201,14 @@ export default function App() {
             />
             <FocusOverlay open={focus.open} presetTaskId={focus.taskId} onClose={closeFocus} />
             <SideDrawer open={drawer} onClose={closeDrawer} onPick={onDrawerPick} />
+            <DoneLogPrompt />
           </div>
+          )}
         </DrawerCtx.Provider>
         </FocusCtx.Provider>
         </TaskSheetCtx.Provider>
       </ToastProvider>
     </ConfirmProvider>
+    </ErrorBoundary>
   )
 }

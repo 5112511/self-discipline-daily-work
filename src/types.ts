@@ -3,26 +3,26 @@
 export type Domain =
   | 'content'  // 内容创作
   | 'ai'       // AI 学习
-  | 'travel'   // 泰国旅行
   | 'health'   // 健康项目
-  | 'class'    // 团课教学
+  | 'class'    // 技能提升
+  | 'work'     // 工作
   | 'life';    // 个人生活
 
 export const DOMAIN_LABEL: Record<Domain, string> = {
   content: '内容创作',
   ai: 'AI 学习',
-  travel: '泰国旅行',
   health: '健康项目',
-  class: '团课教学',
+  class: '技能提升',
+  work: '工作',
   life: '个人生活',
 }
 
 export const DOMAIN_ICON: Record<Domain, string> = {
   content: '✍︎',
   ai: '✺',
-  travel: '✈︎',
   health: '❤︎',
   class: '◎',
+  work: '▣',
   life: '◐',
 }
 
@@ -34,6 +34,9 @@ export interface Task {
   id: string
   title: string
   note?: string
+  completionNote?: string
+  meetingLocation?: string
+  meetingContact?: string
   domain: Domain
   projectId?: string
   priority: Priority
@@ -51,6 +54,7 @@ export interface Task {
   createdAt: string
   completedAt?: string
   overdue?: boolean
+  deletedAt?: string  // 软删除时间戳（ISO），为空表示未删除
 }
 
 export interface Inspiration {
@@ -130,15 +134,6 @@ export interface ContentItem {
   nextAction?: string
 }
 
-export interface TravelChecklistItem {
-  id: string
-  name: string
-  status: 'done' | 'doing' | 'pending'
-  dueDate?: string
-  budget?: string
-  nextAction?: string
-}
-
 export interface ClassSession {
   id: string
   name: string
@@ -170,12 +165,6 @@ export interface Project {
   updatedAt: string
   // 领域子内容
   content?: ContentItem[]
-  travel?: {
-    departure: string
-    checklist: TravelChecklistItem[]
-    overallProgress: number
-    bagProgress: number
-  }
   health?: {
     goal: string
     stage: string
@@ -194,7 +183,22 @@ export interface Project {
     learning: { id: string; topic: string; source: string; progress: number; nextPractice?: string; canToTopic: boolean }[]
     stats: { ideas: number; learning: number; practiced: number; output: number }
   }
+  work?: {
+    meetings: WorkMeeting[]
+  }
   life?: { items: { id: string; title: string; status: TaskStatus }[] }
+}
+
+export interface WorkMeeting {
+  id: string
+  title: string
+  date: string
+  start: string
+  end: string
+  location?: string
+  contact?: string
+  note?: string
+  status: 'planned' | 'done' | 'cancelled'
 }
 
 export interface Schedule {
@@ -302,7 +306,6 @@ export interface DemoData {
     aiMinutes: number
     classCount: number
     sportCount: number
-    travelProgress: number
     healthProgress: number
     inboxCleared: number
     weekTrend: number[]

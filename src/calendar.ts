@@ -94,6 +94,88 @@ export function countByDate(ymds: string[]): Record<string, number> {
   return m
 }
 
+/**
+ * 把任务的自由文本 dueDate 解析成 YYYY-MM-DD
+ * 支持：今天/明天/后天/大后天/昨天/前天/N天后/N天前/周X/X月X日/X/X/X号/2025-08-05 等
+ * 解析失败返回 null
+ */
+export function parseDueDate(input: string | undefined, ref: Date = new Date()): string | null {
+  if (!input) return null
+  const s = input.trim()
+  if (!s) return null
+
+  // 已经是 YYYY-MM-DD
+  if (/^\d{4}-\d{2}-\d{2}$/.test(s)) return s
+
+  const base = new Date(ref.getFullYear(), ref.getMonth(), ref.getDate())
+
+  // 相对天数
+  const relMatch = s.match(/^(今天|明天|后天|大后天|昨天|前天|大前天)$/)
+  if (relMatch) {
+    const map: Record<string, number> = { '今天': 0, '明天': 1, '后天': 2, '大后天': 3, '昨天': -1, '前天': -2, '大前天': -3 }
+    const d = new Date(base)
+    d.setDate(base.getDate() + map[s])
+    return toYmd(d)
+  }
+  const nDays = s.match(/^(\d+)\s*天[后前]$/)
+  if (nDays) {
+    const dir = s.includes('前') ? -1 : 1
+    const d = new Date(base)
+    d.setDate(base.getDate() + dir * parseInt(nDays[1]))
+    return toYmd(d)
+  }
+  // N周后
+  const nWeeks = s.match(/^(\d+)\s*周[后前]$/)
+  if (nWeeks) {
+    const dir = s.includes('前') ? -1 : 1
+    const d = new Date(base)
+    d.setDate(base.getDate() + dir * 7 * parseInt(nWeeks[1]))
+    return toYmd(d)
+  }
+  // 周X（本周的某天）
+  const dowMatch = s.match(/^周([一二三四五六日天])$/)
+  if (dowMatch) {
+    const map: Record<string, number> = { '一': 0, '二': 1, '三': 2, '四': 3, '五': 4, '六': 5, '日': 6, '天': 6 }
+    const target = map[dowMatch[1]]
+    const cur = (base.getDay() + 6) % 7 // 周一=0
+    const d = new Date(base)
+    d.setDate(base.getDate() + (target - cur))
+    return toYmd(d)
+  }
+  // X月X日 / X月X号 / X月X
+  const mdMatch = s.match(/^(\d{1,2})月(\d{1,2})(?:日|号)?$/)
+  if (mdMatch) {
+    const mo = parseInt(mdMatch[1]) - 1
+    const dy = parseInt(mdMatch[2])
+    const d = new Date(base.getFullYear(), mo, dy)
+    // 如果这个日期已经过了，且没指定年份，推到明年（适用于"下个月"的语义）
+    if (d < base && mo < base.getMonth()) d.setFullYear(base.getFullYear() + 1)
+    return toYmd(d)
+  }
+  // M/D 或 M-D
+  const slashMatch = s.match(/^(\d{1,2})[/-](\d{1,2})$/)
+  if (slashMatch) {
+    const mo = parseInt(slashMatch[1]) - 1
+    const dy = parseInt(slashMatch[2])
+    const d = new Date(base.getFullYear(), mo, dy)
+    if (d < base && mo < base.getMonth()) d.setFullYear(base.getFullYear() + 1)
+    return toYmd(d)
+  }
+  // 下周X / 上周X
+  const nextWeekMatch = s.match(/^[下上]周([一二三四五六日天])$/)
+  if (nextWeekMatch) {
+    const map: Record<string, number> = { '一': 0, '二': 1, '三': 2, '四': 3, '五': 4, '六': 5, '日': 6, '天': 6 }
+    const target = map[nextWeekMatch[1]]
+    const cur = (base.getDay() + 6) % 7
+    const offset = s.startsWith('下') ? 7 : -7
+    const d = new Date(base)
+    d.setDate(base.getDate() + offset + (target - cur))
+    return toYmd(d)
+  }
+
+  return null
+}
+
 // ===== .ics 导入导出 =====
 
 function escapeICS(text: string): string {

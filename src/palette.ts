@@ -38,9 +38,9 @@ import type { Domain, AccountKind } from './types'
 export const DOMAIN_COLOR: Record<Domain, PaletteColor> = {
   content: PALETTE[0], // 雾霾蓝 — 内容创作
   ai: PALETTE[4],      // 雾灰紫 — AI 学习
-  travel: PALETTE[2],  // 暖橙 — 旅行
   health: PALETTE[1],  // 复古绿 — 健康
-  class: PALETTE[5],   // 鸭蛋青 — 团课
+  class: PALETTE[5],   // 鸭蛋青 — 技能提升
+  work: PALETTE[3],    // 暖橙 — 工作
   life: PALETTE[6],    // 燕麦金 — 生活
 }
 

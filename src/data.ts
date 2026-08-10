@@ -16,12 +16,6 @@ export const demoData: DemoData = {
       inToday: true, inTop3: true, top3Order: 0, status: 'doing', createdAt: '2025-07-28',
     },
     {
-      id: 't2', title: '查询并确认泰国往返机票', domain: 'travel',
-      priority: 'high', dueDate: '今天', dueTime: '18:00', estimatedMinutes: 30,
-      progress: 10, nextAction: '对比携程与飞猪价格后锁舱',
-      inToday: true, inTop3: true, top3Order: 1, status: 'doing', createdAt: '2025-07-29',
-    },
-    {
       id: 't3', title: '完成 Personal OS 教程视频脚本', domain: 'content',
       priority: 'high', dueDate: '今天', dueTime: '23:00', estimatedMinutes: 60,
       progress: 0, nextAction: '先写开头 30 秒钩子',
@@ -31,9 +25,9 @@ export const demoData: DemoData = {
   todayTasks: [],
   overdueTasks: [
     {
-      id: 'o1', title: '整理上周团课照片', domain: 'class', priority: 'medium',
+      id: 'o1', title: '整理上周技能练习笔记', domain: 'class', priority: 'medium',
       dueDate: '昨天', estimatedMinutes: 20, progress: 0,
-      nextAction: '从相册挑选 30 张精选图', inToday: false, inTop3: false,
+      nextAction: '梳理 30 条练习心得', inToday: false, inTop3: false,
       status: 'pending', createdAt: '2025-07-25', overdue: true,
     },
     {
@@ -45,17 +39,15 @@ export const demoData: DemoData = {
   ],
   reminders: [
     { id: 'r1', title: '鞋子需要送洗', domain: 'life', priority: 'low', progress: 0, nextAction: '周六前送到楼下干洗店', inToday: false, inTop3: false, status: 'pending', createdAt: '2025-07-27' },
-    { id: 'r2', title: '泰国机票尚未购买', domain: 'travel', priority: 'high', progress: 10, nextAction: '锁定 8月17日广州→曼谷', inToday: false, inTop3: false, status: 'doing', createdAt: '2025-07-20' },
     { id: 'r3', title: '投资人沟通材料尚未准备', domain: 'health', priority: 'high', progress: 20, nextAction: '整理项目介绍与核心数据', inToday: false, inTop3: false, status: 'doing', createdAt: '2025-07-22' },
     { id: 'r4', title: '3 条灵感还未整理', domain: 'content', priority: 'medium', progress: 0, inToday: false, inTop3: false, status: 'pending', createdAt: '2025-07-28', note: '收集箱中待转化' },
-    { id: 'r5', title: '学员课后照片还未发送', domain: 'class', priority: 'medium', progress: 0, nextAction: '整理周二团课照片', inToday: false, inTop3: false, status: 'pending', createdAt: '2025-07-27' },
+    { id: 'r5', title: '技能练习作品还未归档', domain: 'class', priority: 'medium', progress: 0, nextAction: '整理周二练习录音', inToday: false, inTop3: false, status: 'pending', createdAt: '2025-07-27' },
   ],
   inspirations: [
     { id: 'i1', content: '做一个「个人 OS 主题」的小红书系列，记录从混乱到秩序的过程', source: 'manual', createdAt: '今天 09:12', archived: false },
     { id: 'i2', content: 'AI 工作流可以拆成「场景→工具→产出」三段式讲法', source: 'web', createdAt: '今天 11:30', archived: false },
-    { id: 'i3', content: '泰国视频可以拍「行李清单全透明」选题', source: 'voice', createdAt: '昨天 22:40', archived: false },
     { id: 'i4', content: '健康项目投资人沟通要突出「用户增长曲线」而非产品功能', source: 'gmail', createdAt: '昨天 16:05', archived: false },
-    { id: 'i5', content: '团课课后照片可以做成九宫格再发，质感更高', source: 'image', createdAt: '前天 20:18', archived: false },
+    { id: 'i5', content: '技能练习过程可以拍成九宫格复盘，质感更高', source: 'image', createdAt: '前天 20:18', archived: false },
   ],
   projects: [
     {
@@ -64,15 +56,13 @@ export const demoData: DemoData = {
       todoCount: 6, updatedAt: '今天',
       content: [
         { id: 'c1', title: 'Personal OS 教程视频', platform: '视频号', type: '口播教程', stage: 'script', planDate: '8月1日', nextAction: '写开头 30 秒钩子' },
-        { id: 'c2', title: '泰国行李清单 Vlog', platform: '小红书', type: '图文', stage: 'idea', nextAction: '确定拍摄角度' },
         { id: 'c3', title: 'AI 工作流三段式', platform: '抖音', type: '短视频', stage: 'topic', nextAction: '列提纲' },
         { id: 'c4', title: '投资人沟通复盘笔记', platform: '公众号', type: '长文', stage: 'publish', planDate: '8月3日', nextAction: '排版' },
-        { id: 'c5', title: '团课九宫格运营图', platform: '小红书', type: '图文', stage: 'edit', nextAction: '调色统一' },
+        { id: 'c5', title: '技能练习九宫格复盘', platform: '小红书', type: '图文', stage: 'edit', nextAction: '调色统一' },
         { id: 'c6', title: '健康项目选题三连', platform: '小红书', type: '图文', stage: 'script', nextAction: '选首篇' },
         { id: 'c7', title: 'AI 学习笔记 #3', platform: '公众号', type: '长文', stage: 'published' },
         { id: 'c8', title: '日常随手记合集', platform: '小红书', type: '图文', stage: 'published' },
-        { id: 'c9', title: '旅行出发倒计时卡', platform: '视频号', type: '短视频', stage: 'published' },
-        { id: 'c10', title: '团课课后花絮', platform: '抖音', type: '短视频', stage: 'published' },
+        { id: 'c9', title: '技能练习花絮', platform: '抖音', type: '短视频', stage: 'published' },
         { id: 'c11', title: '健康项目首篇', platform: '小红书', type: '图文', stage: 'published' },
         { id: 'c12', title: '工具收纳小技巧', platform: '小红书', type: '图文', stage: 'published' },
       ],
@@ -90,27 +80,6 @@ export const demoData: DemoData = {
           { id: 'a5', topic: 'RAG 个人知识库搭建', source: '公众号', progress: 0, nextPractice: '先选向量库', canToTopic: true },
         ],
         stats: { ideas: 12, learning: 3, practiced: 1, output: 1 },
-      },
-    },
-    {
-      id: 'p3', domain: 'travel', name: '泰国旅行', progress: 42,
-      countdownDays: 18, dueDate: '8月17日出发',
-      nextAction: '确认往返机票并锁舱', todoCount: 5, updatedAt: '今天',
-      travel: {
-        departure: '8月17日 · 广州 → 曼谷',
-        overallProgress: 42, bagProgress: 35,
-        checklist: [
-          { id: 'tr1', name: '机票', status: 'doing', dueDate: '今天', budget: '¥1800', nextAction: '锁舱 8/17 出发 8/24 返' },
-          { id: 'tr2', name: '酒店', status: 'doing', dueDate: '8月5日', budget: '¥320/晚', nextAction: '确认素坤逸区域两家选一' },
-          { id: 'tr3', name: '签证', status: 'done', dueDate: '已办', budget: '¥0 免签' },
-          { id: 'tr4', name: '保险', status: 'pending', dueDate: '8月10日', budget: '¥80', nextAction: '买境外旅行险' },
-          { id: 'tr5', name: '行李清单', status: 'doing', dueDate: '8月14日', budget: '—', nextAction: '补防晒与转换头 35%→70%' },
-          { id: 'tr6', name: '路线', status: 'doing', dueDate: '8月12日', budget: '—', nextAction: '曼谷+清迈 7 天拆解' },
-          { id: 'tr7', name: '预算', status: 'pending', dueDate: '8月15日', budget: '¥6000', nextAction: '列每日预算表' },
-          { id: 'tr8', name: '电话卡', status: 'done', dueDate: '已买', budget: '¥35' },
-          { id: 'tr9', name: '当地交通', status: 'pending', dueDate: '8月16日', nextAction: '下载 Grab 并绑卡' },
-          { id: 'tr10', name: '内容拍摄计划', status: 'doing', dueDate: '8月13日', nextAction: '列 5 个选题' },
-        ],
       },
     },
     {
@@ -137,23 +106,33 @@ export const demoData: DemoData = {
       },
     },
     {
-      id: 'p5', domain: 'class', name: '团课教学', progress: 55,
-      nextAction: '整理周二团课照片并发出', todoCount: 3, updatedAt: '今天',
+      id: 'p5', domain: 'class', name: '技能提升', progress: 55,
+      nextAction: '整理周二练习录音并归档', todoCount: 3, updatedAt: '今天',
       classes: {
         weekCount: 4,
         sessions: [
-          { id: 's1', name: '燃脂塑形', weekday: '周二', time: '19:30-20:30', place: 'A 馆 2 号厅', prepareStatus: 'ready', photosUntreated: 28, photosUnsent: 28 },
-          { id: 's2', name: '核心力量', weekday: '周四', time: '19:30-20:30', place: 'A 馆 2 号厅', prepareStatus: 'todo', photosUntreated: 0, photosUnsent: 0, nextClass: '需备课：核心进阶组合' },
-          { id: 's3', name: '燃脂塑形', weekday: '周六', time: '10:00-11:00', place: 'B 馆 1 号厅', prepareStatus: 'ready', photosUntreated: 0, photosUnsent: 0 },
-          { id: 's4', name: '舒缓拉伸', weekday: '周日', time: '18:00-19:00', place: 'A 馆 3 号厅', prepareStatus: 'ready', photosUntreated: 0, photosUnsent: 0 },
+          { id: 's1', name: '口语跟读', weekday: '周二', time: '19:30-20:30', place: '家 · 书桌', prepareStatus: 'ready', photosUntreated: 28, photosUnsent: 28 },
+          { id: 's2', name: '键盘进阶', weekday: '周四', time: '19:30-20:30', place: '家 · 书桌', prepareStatus: 'todo', photosUntreated: 0, photosUnsent: 0, nextClass: '需练习：进阶和弦组合' },
+          { id: 's3', name: '口语跟读', weekday: '周六', time: '10:00-11:00', place: '咖啡厅', prepareStatus: 'ready', photosUntreated: 0, photosUnsent: 0 },
+          { id: 's4', name: '硬笔临帖', weekday: '周日', time: '18:00-19:00', place: '家 · 书桌', prepareStatus: 'ready', photosUntreated: 0, photosUnsent: 0 },
         ],
         photosUntreated: 28,
         photosUnsent: 28,
-        nextPrep: '周四核心力量需备课',
+        nextPrep: '周四键盘进阶需练习',
       },
     },
     {
-      id: 'p6', domain: 'life', name: '个人生活', progress: 25,
+      id: 'p6', domain: 'work', name: '工作', progress: 35,
+      nextAction: '跟进本周会议与工作 DDL', todoCount: 3, updatedAt: '今天',
+      work: {
+        meetings: [
+          { id: 'wm1', title: '项目周会', date: '2025-07-31', start: '10:00', end: '11:00', location: '线上 · 飞书会议', contact: '林老师', note: '确认本周交付与分工', status: 'planned' },
+          { id: 'wm2', title: '产品需求对齐', date: '2025-08-01', start: '15:00', end: '16:00', location: 'B 座 302', contact: '产品组 · 小雅', note: '同步需求范围和截止时间', status: 'planned' },
+        ],
+      },
+    },
+    {
+      id: 'p7', domain: 'life', name: '个人生活', progress: 25,
       nextAction: '鞋子送洗 · 安排本周运动',
       todoCount: 5, updatedAt: '今天',
       life: {
@@ -171,19 +150,18 @@ export const demoData: DemoData = {
   todayTimeline: [
     { id: 'tl1', title: '晨间整理 · AI 简报', domain: 'ai', date: '', start: '07:30', end: '08:00', done: true },
     { id: 'tl2', title: '内容脚本撰写', domain: 'content', date: '', start: '09:00', end: '10:30', done: true },
-    { id: 'tl3', title: '查询泰国机票', domain: 'travel', date: '', start: '14:00', end: '14:30', done: false },
-    { id: 'tl4', title: '团课备课 · 核心力量', domain: 'class', date: '', start: '16:00', end: '17:00', done: false },
+    { id: 'tl4', title: '键盘练习 · 进阶和弦', domain: 'class', date: '', start: '16:00', end: '17:00', done: false },
     { id: 'tl5', title: '投资人沟通提纲', domain: 'health', date: '', start: '20:00', end: '20:45', done: false },
     { id: 'tl6', title: '运动 30 分钟', domain: 'life', date: '', start: '21:00', end: '21:30', done: false },
   ],
   weekTimeline: [
     { day: '一', blocks: [{ domain: 'content', minutes: 90, label: '脚本' }, { domain: 'ai', minutes: 60, label: '学习' }, { domain: 'life', minutes: 30, label: '运动' }] },
-    { day: '二', blocks: [{ domain: 'class', minutes: 60, label: '团课' }, { domain: 'health', minutes: 45, label: '选题' }] },
+    { day: '二', blocks: [{ domain: 'class', minutes: 60, label: '练习' }, { domain: 'health', minutes: 45, label: '选题' }] },
     { day: '三', blocks: [{ domain: 'content', minutes: 120, label: '剪辑' }, { domain: 'ai', minutes: 40, label: '工作流' }] },
-    { day: '四', blocks: [{ domain: 'class', minutes: 60, label: '团课' }, { domain: 'health', minutes: 45, label: '投资人' }, { domain: 'travel', minutes: 30, label: '机票' }, { domain: 'life', minutes: 30, label: '运动' }] },
+    { day: '四', blocks: [{ domain: 'class', minutes: 60, label: '练习' }, { domain: 'health', minutes: 45, label: '投资人' }, { domain: 'life', minutes: 30, label: '运动' }] },
     { day: '五', blocks: [{ domain: 'content', minutes: 90, label: '拍摄' }, { domain: 'ai', minutes: 30, label: '复盘' }] },
-    { day: '六', blocks: [{ domain: 'class', minutes: 60, label: '团课' }, { domain: 'travel', minutes: 60, label: '行李' }] },
-    { day: '日', blocks: [{ domain: 'class', minutes: 60, label: '拉伸' }, { domain: 'life', minutes: 90, label: '整理' }] },
+    { day: '六', blocks: [{ domain: 'class', minutes: 60, label: '练习' }] },
+    { day: '日', blocks: [{ domain: 'class', minutes: 60, label: '临帖' }, { domain: 'life', minutes: 90, label: '整理' }] },
   ],
   stats: {
     weekDone: 18,
@@ -193,7 +171,6 @@ export const demoData: DemoData = {
     aiMinutes: 220,
     classCount: 4,
     sportCount: 3,
-    travelProgress: 42,
     healthProgress: 30,
     inboxCleared: 5,
     weekTrend: [3, 4, 2, 5, 3, 4, 5],
@@ -202,7 +179,6 @@ export const demoData: DemoData = {
       { domain: 'content', minutes: 300 },
       { domain: 'ai', minutes: 220 },
       { domain: 'class', minutes: 240 },
-      { domain: 'travel', minutes: 90 },
       { domain: 'health', minutes: 135 },
       { domain: 'life', minutes: 150 },
     ],
@@ -211,8 +187,7 @@ export const demoData: DemoData = {
     connected: false,
     items: [
       { id: 'g1', from: '某投资机构 · 林老师', subject: '关于健康项目沟通时间的确认', tag: '需要行动', time: '今天 10:24' },
-      { id: 'g2', from: '携程旅行', subject: '8月17日广州→曼谷航班降价提醒', tag: '仅供阅读', time: '今天 09:05' },
-      { id: 'g3', from: '学员 · 小雅', subject: '上周团课视频可以发我一份吗', tag: '需要行动', time: '昨天 21:40' },
+      { id: 'g3', from: '练习搭子 · 小雅', subject: '上周练习录音可以发我一份吗', tag: '需要行动', time: '昨天 21:40' },
       { id: 'g4', from: 'AI 学习社群', subject: 'Coze 多智能体案例汇总已更新', tag: '等待回复', time: '昨天 15:12' },
     ],
   },

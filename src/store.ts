@@ -1,5 +1,6 @@
 import type { DemoData, Task, Inspiration, Project, Schedule, Domain, FocusSession, FocusSettings, Ledger, LedgerAccount, LedgerTxn, LedgerSnapshot, TrendingTopic, TrendingCategory, TrendingSource, BloggerRef, TrendingPlatform } from './types'
 import { demoData as defaultDemo } from './data'
+import { pushToCloud, pullFromCloud, mergeData } from './lib/sync'
 
 // ===== 玥莹的 Personal OS · 数据层（LocalStorage 持久化）=====
 
@@ -41,13 +42,28 @@ export interface AppData {
   trendingSource: TrendingSource
 }
 
+// 历史事件类型（用于历史记录页展示）
+export type HistoryEventKind = 'task-done' | 'task-deleted' | 'schedule-done' | 'ledger-income' | 'ledger-expense' | 'focus'
+
+export interface HistoryEvent {
+  kind: HistoryEventKind
+  id: string
+  title: string
+  domain: Domain
+  date: string          // YYYY-MM-DD
+  time: string          // HH:mm（可为空）
+  detail?: string
+  priority?: import('./types').Priority
+  deleted?: boolean
+  originalStatus?: import('./types').TaskStatus
+}
+
 // 把 demoData 转成可编辑的 AppData 初始结构
 // 自媒体创作热点选题池（涵盖流量/生活/知识/情绪/热点/技能六类）
 const TRENDING_POOL: Omit<TrendingTopic, 'id' | 'heat'>[] = [
   { title: '一个人住的第 30 天，我学会了这件事', angle: '独居 vlog + 情绪转折，结尾给一个生活小顿悟', platform: '小红书', category: 'life', keywords: ['独居', '生活仪式感', '治愈'] },
   { title: '月薪 5k 和 5w 的女生，周末有什么不同', angle: '对比向，两个真实案例 + 价值观讨论', platform: '抖音', category: 'emotion', keywords: ['消费观', '对比', '女性成长'] },
   { title: '我用 AI 做自媒体，月涨粉 1 万', angle: '工具实测 + 数据截图，强干货', platform: 'B站', category: 'skill', keywords: ['AI工具', '涨粉', '效率'] },
-  { title: '泰国旅行 7 天只花 3000 块，我是怎么做到的', angle: '省钱攻略 + 路线图 + 真实花销表格', platform: '小红书', category: 'skill', keywords: ['穷游', '泰国', '攻略'] },
   { title: '下班后的 2 小时，决定了你三年后的样子', angle: '成长类情绪共鸣，配日常片段', platform: '抖音', category: 'emotion', keywords: ['自律', '副业', '成长'] },
   { title: '今年夏天最火的 3 个穿搭公式', angle: '趋势盘点 + 上身示范，节奏快', platform: '小红书', category: 'trend', keywords: ['穿搭', '夏日', '趋势'] },
   { title: '为什么年轻人开始流行"City Walk"', angle: '现象解读 + 街采 + 个人观点', platform: 'B站', category: 'trend', keywords: ['CityWalk', '生活方式', '观察'] },
@@ -60,7 +76,6 @@ const TRENDING_POOL: Omit<TrendingTopic, 'id' | 'heat'>[] = [
   { title: '如何在镜头前不紧张？3 个方法', angle: '教学干货，面向新手博主', platform: '小红书', category: 'skill', keywords: ['镜头感', '教程', '新手'] },
   { title: '那些让你瞬间破防的瞬间', angle: '情绪共鸣合集，配治愈文案', platform: '抖音', category: 'emotion', keywords: ['破防', '共鸣', '治愈'] },
   { title: '我试着用一周时间戒掉手机', angle: '挑战类 vlog，记录变化', platform: 'B站', category: 'life', keywords: ['戒手机', '挑战', '自律'] },
-  { title: '这个夏天必去的 5 个冷门海岛', angle: '旅行种草 + 实拍 + 避雷', platform: '小红书', category: 'trend', keywords: ['海岛', '旅行', '冷门'] },
   { title: '用手机拍出电影感，只要这 4 步', angle: '拍摄教学 + 前后对比', platform: '抖音', category: 'skill', keywords: ['运镜', '手机摄影', '教程'] },
   { title: '当我说"我累了"，其实我在说什么', angle: '深度情绪向，配独白文案', platform: '小红书', category: 'emotion', keywords: ['情绪', '独白', '治愈'] },
   { title: '今年双 11，我劝你别买这些东西', angle: '反消费主义热点 + 避雷清单', platform: '抖音', category: 'trend', keywords: ['双11', '避雷', '消费'] },
@@ -141,7 +156,7 @@ function buildInitialData(): AppData {
     heatmap: [...d.stats.heatmap],
     weekDist: d.stats.weekDist.map(w => ({ ...w })),
     focusSessions: [],
-    focusSettings: { pomodoroMin: 25, categories: ['content', 'ai', 'travel', 'health', 'class', 'life'], sound: true, notification: true },
+    focusSettings: { pomodoroMin: 25, categories: ['content', 'ai', 'health', 'class', 'work', 'life'], sound: true, notification: true },
     ledger: defaultLedger(todayStr()),
     trendingTopics: pickTrending(8),
     trendingSource: defaultTrendingSource(),
@@ -150,7 +165,7 @@ function buildInitialData(): AppData {
 
 function defaultTrendingSource(): TrendingSource {
   return {
-    keywords: ['AI', '减脂', '独居', '涨粉', '成长', '旅行'],
+    keywords: ['AI', '减脂', '独居', '涨粉', '成长'],
     platforms: ['weibo', 'xhs', 'douyin'],
     bloggers: [],
     backendUrl: 'http://127.0.0.1:5174',
@@ -188,6 +203,62 @@ type Listener = () => void
 const listeners = new Set<Listener>()
 let cache: AppData | null = null
 
+// ===== 任务完成事件（用于询问"什么时候做的"并录入日历）=====
+export type DoneLogEvent = { taskId: string; title: string; domain: Domain }
+type DoneLogListener = (e: DoneLogEvent) => void
+const doneLogListeners = new Set<DoneLogListener>()
+export function onTaskDone(l: DoneLogListener) { doneLogListeners.add(l); return () => doneLogListeners.delete(l) }
+function emitTaskDone(e: DoneLogEvent) { doneLogListeners.forEach(l => { try { l(e) } catch {} }) }
+
+// ===== 云同步状态 =====
+let currentUserId: string | null = null   // 登录后设置
+let syncTimer: ReturnType<typeof setTimeout> | null = null
+let isSyncing = false
+
+// 设置当前登录用户（登录/登出时调用）
+export function setCurrentUserId(id: string | null) {
+  currentUserId = id
+  if (id) {
+    // 登录后立即拉取云端数据并合并
+    syncFromCloud()
+  }
+}
+
+// 后台异步上传到云端（防抖 2 秒，避免频繁写）
+function scheduleCloudPush() {
+  if (!currentUserId) return
+  if (syncTimer) clearTimeout(syncTimer)
+  syncTimer = setTimeout(async () => {
+    if (isSyncing || !cache || !currentUserId) return
+    isSyncing = true
+    try {
+      await pushToCloud(cache, currentUserId)
+    } catch { /* ignore */ }
+    isSyncing = false
+  }, 2000)
+}
+
+// 从云端拉取并合并到本地
+export async function syncFromCloud(): Promise<{ ok: boolean; error?: string }> {
+  if (!currentUserId) return { ok: false, error: '未登录' }
+  isSyncing = true
+  try {
+    const local = read()
+    const pull = await pullFromCloud(currentUserId)
+    if (pull.ok && pull.data) {
+      const merged = mergeData(local, pull.data)
+      cache = merged
+      try { localStorage.setItem(STORAGE_KEY, JSON.stringify(merged)) } catch { /* ignore */ }
+      listeners.forEach(l => l())
+    }
+    isSyncing = false
+    return { ok: pull.ok, error: pull.error }
+  } catch (e: any) {
+    isSyncing = false
+    return { ok: false, error: e?.message || String(e) }
+  }
+}
+
 function read(): AppData {
   if (cache) return cache
   try {
@@ -195,13 +266,18 @@ function read(): AppData {
     if (raw) {
       const parsed = JSON.parse(raw) as Partial<AppData>
       if (parsed.version === VERSION) {
-        // 字段兼容：旧数据可能缺 weekDist 等后加字段，用默认值补齐，避免 .map 报错白屏
+        // 字段兼容：旧数据可能缺新领域/新字段，用演示骨架补齐但保留用户原有数据
         const demo = defaultDemo
+        const storedProjects = parsed.projects ?? []
+        const workProject = demo.projects.find(p => p.domain === 'work')
+        const projects = storedProjects.some(p => p.domain === 'work') || !workProject
+          ? storedProjects
+          : [...storedProjects, workProject]
         const merged: AppData = {
           version: VERSION,
           tasks: parsed.tasks ?? [],
           inspirations: parsed.inspirations ?? [],
-          projects: parsed.projects ?? [],
+          projects,
           schedules: (parsed.schedules ?? []).map(s => ({ ...s, date: s.date || todayStr() })),
           meta: parsed.meta ?? {
             todayProgress: demo.todayProgress,
@@ -215,7 +291,7 @@ function read(): AppData {
           heatmap: parsed.heatmap ?? [],
           weekDist: parsed.weekDist ?? demo.stats.weekDist.map(w => ({ ...w })),
           focusSessions: parsed.focusSessions ?? [],
-          focusSettings: parsed.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'travel', 'health', 'class', 'life'], sound: true, notification: true },
+          focusSettings: parsed.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'health', 'class', 'work', 'life'], sound: true, notification: true },
           ledger: parsed.ledger ?? defaultLedger(todayStr()),
           trendingTopics: parsed.trendingTopics ?? pickTrending(8),
           trendingSource: parsed.trendingSource ?? defaultTrendingSource(),
@@ -237,6 +313,8 @@ function write(data: AppData) {
     localStorage.setItem(STORAGE_KEY, JSON.stringify(data))
   } catch { /* ignore */ }
   listeners.forEach(l => l())
+  // 触发后台云同步（已登录才上传）
+  scheduleCloudPush()
 }
 
 // 根据各领域实际完成情况动态计算项目进度
@@ -249,10 +327,6 @@ function recomputeProjectProgress(p: Project): Project {
   } else if (p.domain === 'ai' && p.ai?.learning) {
     const list = p.ai.learning
     progress = list.length ? Math.round(list.reduce((s, l) => s + (l.progress || 0), 0) / list.length) : 0
-  } else if (p.domain === 'travel' && p.travel?.checklist) {
-    const list = p.travel.checklist
-    const done = list.filter(i => i.status === 'done').length
-    progress = list.length ? Math.round((done / list.length) * 100) : 0
   } else if (p.domain === 'health' && p.health?.investorSteps) {
     const steps = p.health.investorSteps
     const done = steps.filter(s => s.done).length
@@ -272,12 +346,39 @@ function recomputeProjectProgress(p: Project): Project {
 export const store = {
   get(): AppData { return read() },
 
+  // 未删除的任务（UI 层应优先用这个）
+  activeTasks(): Task[] { return read().tasks.filter(t => !t.deletedAt) },
+
   subscribe(l: Listener) { listeners.add(l); return () => listeners.delete(l) },
 
   // ===== 演示数据 =====
   resetDemo() { const init = buildInitialData(); write(init) },
 
-  clearAll() { const empty: AppData = { version: VERSION, tasks: [], inspirations: [], projects: [], schedules: [], meta: read().meta, settings: read().settings, inboxCleared: 0, weekTrend: [], heatmap: [], weekDist: [], focusSessions: [], focusSettings: read().focusSettings, ledger: read().ledger, trendingTopics: pickTrending(8), trendingSource: read().trendingSource ?? defaultTrendingSource() }; write(empty) },
+  clearAll() {
+    // 生成完整、安全的空数据，每个字段都有兜底，防止任何 undefined 导致渲染白屏
+    // projects 保留七大主线骨架（清空的是任务/日程/账本等内容数据，不是项目结构）
+    const cur = read()
+    const fresh = buildInitialData()
+    const empty: AppData = {
+      version: VERSION,
+      tasks: [],
+      inspirations: [],
+      projects: (cur.projects && cur.projects.length >= 7) ? cur.projects : fresh.projects,
+      schedules: [],
+      meta: cur.meta ?? { todayProgress: 0, streakDays: 0, greeting: '全新开始', mood: '○' },
+      settings: cur.settings ?? { avatarText: '玥', displayName: '玥莹' },
+      inboxCleared: 0,
+      weekTrend: [],
+      heatmap: [],
+      weekDist: [],
+      focusSessions: [],
+      focusSettings: cur.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'health', 'class', 'work', 'life'], sound: true, notification: true },
+      ledger: cur.ledger ?? defaultLedger(todayStr()),
+      trendingTopics: pickTrending(8),
+      trendingSource: cur.trendingSource ?? defaultTrendingSource(),
+    }
+    write(empty)
+  },
 
   exportJSON(): string { return JSON.stringify(read(), null, 2) },
 
@@ -297,6 +398,9 @@ export const store = {
       id: 't' + Date.now() + Math.floor(Math.random() * 1000),
       title: t.title || '新任务',
       note: t.note,
+      completionNote: t.completionNote,
+      meetingLocation: t.meetingLocation,
+      meetingContact: t.meetingContact,
       domain: t.domain || 'life',
       projectId: t.projectId,
       priority: t.priority || 'medium',
@@ -319,11 +423,146 @@ export const store = {
   },
   updateTask(id: string, patch: Partial<Task>) {
     const data = read()
-    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, ...patch } : t) })
+    // 规范化：完成任务时补全 completedAt；取消完成时清空
+    let p = { ...patch }
+    const wasDone = data.tasks.find(t => t.id === id)?.status === 'done'
+    if (patch.status === 'done' && !patch.completedAt) {
+      p.completedAt = new Date().toISOString().slice(0, 10)
+    }
+    if (patch.status && patch.status !== 'done' && patch.completedAt === undefined) {
+      // 取消完成时清空 completedAt（显式传 undefined）
+    }
+    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, ...p } : t) })
+    // 完成任务且之前未完成时，若没有关联日程，触发事件让 UI 询问时间段
+    if (patch.status === 'done' && !wasDone) {
+      const t = data.tasks.find(x => x.id === id)
+      if (t) {
+        const hasSch = data.schedules.some(s => s.taskId === id)
+        if (!hasSch) emitTaskDone({ taskId: id, title: t.title, domain: t.domain })
+      }
+    }
   },
+  // 软删除：标记 deletedAt，不真正移除（可在历史中恢复）
   deleteTask(id: string) {
     const data = read()
+    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, deletedAt: new Date().toISOString(), inTop3: false, inToday: false, top3Order: undefined } : t) })
+  },
+  // 恢复软删除的任务
+  restoreTask(id: string) {
+    const data = read()
+    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, deletedAt: undefined } : t) })
+  },
+  // 永久删除（不可恢复）
+  purgeTask(id: string) {
+    const data = read()
     write({ ...data, tasks: data.tasks.filter(t => t.id !== id) })
+  },
+  // 清空所有软删除任务
+  purgeAllDeleted() {
+    const data = read()
+    write({ ...data, tasks: data.tasks.filter(t => !t.deletedAt) })
+  },
+
+  // ===== 历史记录聚合 =====
+  // 按天聚合历史（完成任务 + 删除任务 + 日程完成），返回按日期倒序的分组
+  getHistoryByDay(): { date: string; events: HistoryEvent[] }[] {
+    const data = read()
+    const events: HistoryEvent[] = []
+
+    // 完成的任务
+    data.tasks
+      .filter(t => t.status === 'done' && t.completedAt)
+      .forEach(t => events.push({
+        kind: 'task-done',
+        id: t.id,
+        title: t.title,
+        domain: t.domain,
+        date: t.completedAt!,
+        time: '',
+        detail: t.nextAction,
+        priority: t.priority,
+        deleted: !!t.deletedAt,
+      }))
+
+    // 软删除的任务（误触/调整）
+    data.tasks
+      .filter(t => t.deletedAt)
+      .forEach(t => events.push({
+        kind: 'task-deleted',
+        id: t.id,
+        title: t.title,
+        domain: t.domain,
+        date: t.deletedAt!.slice(0, 10),
+        time: t.deletedAt!.slice(11, 16),
+        detail: '已删除',
+        priority: t.priority,
+        deleted: true,
+        originalStatus: t.status,
+      }))
+
+    // 完成的日程
+    data.schedules
+      .filter(s => s.done)
+      .forEach(s => events.push({
+        kind: 'schedule-done',
+        id: s.id,
+        title: s.title,
+        domain: s.domain,
+        date: s.date,
+        time: s.start,
+        detail: `${s.start}–${s.end}`,
+      }))
+
+    // 账本交易（记录每一笔，用于回看）
+    data.ledger.txns
+      .forEach(x => events.push({
+        kind: x.type === 'income' ? 'ledger-income' : 'ledger-expense',
+        id: x.id,
+        title: x.category,
+        domain: 'life',
+        date: x.date,
+        time: x.time,
+        detail: `${x.type === 'income' ? '+' : '-'}¥${x.amount}${x.note ? ' · ' + x.note : ''}`,
+      }))
+
+    // 专注会话
+    data.focusSessions
+      .filter(f => f.completed)
+      .forEach(f => events.push({
+        kind: 'focus',
+        id: f.id,
+        title: f.title,
+        domain: f.domain,
+        date: f.date,
+        time: f.start,
+        detail: `专注 ${f.actualMin} 分钟`,
+      }))
+
+    // 按日期分组（倒序）
+    const groups: Record<string, HistoryEvent[]> = {}
+    events.forEach(e => {
+      if (!groups[e.date]) groups[e.date] = []
+      groups[e.date].push(e)
+    })
+    return Object.keys(groups)
+      .sort((a, b) => b.localeCompare(a))
+      .map(date => ({
+        date,
+        events: groups[date].sort((a, b) => (b.time || '').localeCompare(a.time || '')),
+      }))
+  },
+
+  // 按分类聚合历史（用于分类统计视图）
+  getHistoryByCategory(domain?: import('./types').Domain): { domain: import('./types').Domain; count: number; items: HistoryEvent[] }[] {
+    const days = this.getHistoryByDay()
+    const all = days.flatMap(d => d.events).filter(e => e.kind !== 'task-deleted')
+    const filter = domain ? all.filter(e => e.domain === domain) : all
+    const map: Record<string, HistoryEvent[]> = {}
+    filter.forEach(e => {
+      if (!map[e.domain]) map[e.domain] = []
+      map[e.domain].push(e)
+    })
+    return Object.keys(map).map(d => ({ domain: d as import('./types').Domain, count: map[d].length, items: map[d] }))
   },
 
   // ===== Top 3 =====
@@ -472,21 +711,6 @@ export const store = {
     })
   },
 
-  // 旅行清单切换
-  toggleTravelItem(projectId: string, itemId: string) {
-    const data = read()
-    write({
-      ...data,
-      projects: data.projects.map(p => {
-        if (p.id !== projectId || !p.travel) return p
-        const checklist = p.travel.checklist.map(it => it.id === itemId ? { ...it, status: (it.status === 'done' ? 'pending' : 'done') as 'done' | 'pending' | 'doing' } : it)
-        const done = checklist.filter(i => i.status === 'done').length
-        const overall = Math.round((done / checklist.length) * 100)
-        return recomputeProjectProgress({ ...p, travel: { ...p.travel, checklist, overallProgress: overall } })
-      }),
-    })
-  },
-
   // 健康投资人步骤切换
   toggleInvestorStep(projectId: string, stepId: string) {
     const data = read()
@@ -500,7 +724,7 @@ export const store = {
     })
   },
 
-  // 团课备课切换
+  // 技能练习状态切换
   toggleClassPrep(projectId: string, sessionId: string) {
     const data = read()
     write({
@@ -512,7 +736,7 @@ export const store = {
       }),
     })
   },
-  // 团课照片已发送
+  // 技能练习作品已归档
   sendClassPhotos(projectId: string, sessionId: string) {
     const data = read()
     write({

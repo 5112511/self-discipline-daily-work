@@ -1,6 +1,19 @@
 // Personal OS Service Worker - 离线可用 + 静态资源缓存
-const CACHE = 'personal-os-v1';
-const PRECACHE = ['/', '/index.html', '/manifest.webmanifest', '/apple-touch-icon.png'];
+const CACHE = 'personal-os-v2';
+const PRECACHE = [
+  '/',
+  '/index.html',
+  '/manifest.webmanifest',
+  '/sw.js',
+  '/apple-touch-icon.png',
+  '/favicon-32.png',
+  '/icon-192.png',
+  '/icon-256.png',
+  '/icon-384.png',
+  '/icon-512.png',
+  '/icon-maskable-512.png',
+  '/icon.svg'
+];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(

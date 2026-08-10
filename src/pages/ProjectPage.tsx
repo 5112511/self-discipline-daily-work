@@ -67,19 +67,34 @@ export function ProjectPage({ onOpenDetail }: { onOpenDetail?: (projectId: strin
   const data = useStore()
   const toast = useToast()
   const projects = data.projects
-  const content = projects[0]
-  const ai = projects[1]
-  const travel = projects[2]
-  const health = projects[3]
-  const cls = projects[4]
-  const life = projects[5]
+  const content = projects.find(p => p.domain === 'content')
+  const ai = projects.find(p => p.domain === 'ai')
+  const health = projects.find(p => p.domain === 'health')
+  const cls = projects.find(p => p.domain === 'class')
+  const work = projects.find(p => p.domain === 'work')
+  const life = projects.find(p => p.domain === 'life')
+
+  // 项目骨架不完整时显示空状态（清空数据后兜底，防止硬编码下标崩溃）
+  if (!content || !ai || !health || !cls || !work || !life) {
+    return (
+      <div className="page project-page">
+        <div className="page-title">项目</div>
+        <div className="page-sub">五条生活主线 · 个人生活地图</div>
+        <div className="card card-pad empty-block">
+          <div className="emoji">◇</div>
+          <div className="t-sub">项目数据为空</div>
+          <div className="t-cap" style={{ marginTop: 6 }}>去「我的」恢复演示数据即可重新开始</div>
+        </div>
+      </div>
+    )
+  }
 
   const stageCount = (stage: ContentStage) => content.content?.filter(c => c.stage === stage).length || 0
 
   return (
     <div className="page project-page">
       <div className="page-title">项目</div>
-      <div className="page-sub">六条生活主线 · 个人生活地图</div>
+      <div className="page-sub">五条生活主线 · 个人生活地图</div>
 
       {/* 总览 */}
       <div className="pov-grid">
@@ -145,40 +160,7 @@ export function ProjectPage({ onOpenDetail }: { onOpenDetail?: (projectId: strin
         </div>
       </ProjectSection>
 
-      {/* C. 泰国旅行 */}
-      <ProjectSection p={travel} onAll={() => onOpenDetail?.(travel.id)}>
-        <div className="card card-pad travel-hero">
-          <div className="travel-count">
-            <div className="travel-days mono">{travel.countdownDays}</div>
-            <div className="travel-days-label">天后出发</div>
-          </div>
-          <div className="travel-dep">
-            <div className="t-body">{travel.travel!.departure}</div>
-            <div className="t-cap">准备进度 {travel.travel!.overallProgress}% · 行李 {travel.travel!.bagProgress}%</div>
-            <div className="bar" style={{ marginTop: 6 }}><i style={{ width: `${travel.travel!.overallProgress}%` }} /></div>
-          </div>
-        </div>
-        <div className="card" style={{ marginTop: 10 }}>
-          <div className="t-sub" style={{ padding: '10px 4px 6px' }}>待处理 / 进行中</div>
-          {(() => {
-            const urgent = travel.travel!.checklist.filter(it => it.status !== 'done').slice(0, 3)
-            if (!urgent.length) return <div className="t-cap" style={{ padding: 8 }}>全部完成 ✓</div>
-            return urgent.map((it, i) => (
-              <div key={it.id} className={'tr-row' + (i < urgent.length - 1 ? ' b' : '')}>
-                <span className={'tr-check' + (it.status === 'done' ? ' done' : '')} onClick={() => { store.toggleTravelItem(travel.id, it.id); toast(it.status === 'done' ? '已取消完成' : '已完成 ✓') }}>{it.status === 'done' ? '✓' : ''}</span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="t-body">{it.name}</div>
-                  <div className="t-cap">{it.status === 'doing' ? '进行中' : '待处理'}{it.budget ? ` · ${it.budget}` : ''}{it.dueDate ? ` · ${it.dueDate}` : ''}</div>
-                  {it.nextAction && <div className="t-sub" style={{ marginTop: 2, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>→ {it.nextAction}</div>}
-                </div>
-              </div>
-            ))
-          })()}
-          <div className="t-cap" style={{ padding: 8, textAlign: 'center' }}>点击「全部」查看全部 {travel.travel!.checklist.length} 项准备</div>
-        </div>
-      </ProjectSection>
-
-      {/* D. 健康项目 */}
+      {/* C. 健康项目 */}
       <ProjectSection p={health} onAll={() => onOpenDetail?.(health.id)}>
         <div className="card card-pad">
           <div className="health-goal">
@@ -202,16 +184,16 @@ export function ProjectPage({ onOpenDetail }: { onOpenDetail?: (projectId: strin
         </div>
       </ProjectSection>
 
-      {/* E. 团课教学 */}
+      {/* D. 技能提升 */}
       <ProjectSection p={cls} onAll={() => onOpenDetail?.(cls.id)}>
         <div className="card card-pad">
           <div className="class-stats">
-            <div><span className="t-h2 mono">{cls.classes!.weekCount}</span><span className="t-cap">本周课程</span></div>
-            <div><span className="t-h2 mono">{cls.classes!.photosUnsent}</span><span className="t-cap">照片待发</span></div>
-            <div><span className="t-h2 mono">{cls.classes!.sessions.filter(s => s.prepareStatus === 'todo').length}</span><span className="t-cap">需备课</span></div>
+            <div><span className="t-h2 mono">{cls.classes!.weekCount}</span><span className="t-cap">本周练习</span></div>
+            <div><span className="t-h2 mono">{cls.classes!.photosUnsent}</span><span className="t-cap">作品待归档</span></div>
+            <div><span className="t-h2 mono">{cls.classes!.sessions.filter(s => s.prepareStatus === 'todo').length}</span><span className="t-cap">需练习</span></div>
           </div>
           <div className="divider" />
-          <div className="t-sub" style={{ marginBottom: 8 }}>需备课 / 照片待发</div>
+          <div className="t-sub" style={{ marginBottom: 8 }}>需练习 / 作品待归档</div>
           {(() => {
             const urgent = cls.classes!.sessions.filter(s => s.prepareStatus === 'todo' || s.photosUnsent > 0).slice(0, 3)
             if (!urgent.length) return <div className="t-cap" style={{ padding: 8 }}>全部准备就绪 ✓</div>
@@ -220,16 +202,34 @@ export function ProjectPage({ onOpenDetail }: { onOpenDetail?: (projectId: strin
                 <div style={{ flex: 1, minWidth: 0 }}>
                   <div className="t-body" style={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{s.name} · {s.weekday} {s.time}</div>
                   <div className="t-cap">{s.place}</div>
-                  {s.photosUnsent > 0 && <div className="t-sub" style={{ color: 'var(--ink-2)' }}>→ 整理并发送 {s.photosUnsent} 张课后照片</div>}
+                  {s.photosUnsent > 0 && <div className="t-sub" style={{ color: 'var(--ink-2)' }}>→ 整理并归档 {s.photosUnsent} 份练习作品</div>}
                 </div>
                 <div style={{ display: 'flex', flexDirection: 'column', gap: 6, alignItems: 'flex-end' }}>
-                  {s.prepareStatus === 'todo' && <button className="chip tap chip-dark" onClick={() => { store.toggleClassPrep(cls.id, s.id); toast(s.prepareStatus === 'todo' ? '已标记备课完成' : '需重新备课') }}>待备课</button>}
-                  {s.photosUnsent > 0 && <button className="chip line tap" onClick={() => { store.sendClassPhotos(cls.id, s.id); toast('已发送课后照片 ✓') }}>发送照片</button>}
+                  {s.prepareStatus === 'todo' && <button className="chip tap chip-dark" onClick={() => { store.toggleClassPrep(cls.id, s.id); toast(s.prepareStatus === 'todo' ? '已标记练习完成' : '需重新练习') }}>待练习</button>}
+                  {s.photosUnsent > 0 && <button className="chip line tap" onClick={() => { store.sendClassPhotos(cls.id, s.id); toast('已归档练习作品 ✓') }}>归档作品</button>}
                 </div>
               </div>
             ))
           })()}
-          <div className="t-cap" style={{ marginTop: 8, textAlign: 'center' }}>点击「全部」查看全部 {cls.classes!.sessions.length} 节课程</div>
+          <div className="t-cap" style={{ marginTop: 8, textAlign: 'center' }}>点击「全部」查看全部 {cls.classes!.sessions.length} 项练习</div>
+        </div>
+      </ProjectSection>
+
+      {/* E. 工作 */}
+      <ProjectSection p={work} onAll={() => onOpenDetail?.(work.id)}>
+        <div className="card card-pad">
+          <div className="t-sub" style={{ marginBottom: 8 }}>工作 DDL / 会议</div>
+          {(work.work?.meetings || []).map(m => (
+            <div key={m.id} className="life-row b">
+              <span className="t-cap mono" style={{ minWidth: 76 }}>{m.date} {m.start}</span>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div className="t-body">{m.title}</div>
+                <div className="t-cap">{m.contact || '未设置对接人'} · {m.location || '未设置地点'}</div>
+              </div>
+            </div>
+          ))}
+          {(work.work?.meetings || []).length === 0 && <div className="t-cap" style={{ padding: 8 }}>暂无工作会议</div>}
+          <div className="t-cap" style={{ marginTop: 8, textAlign: 'center' }}>点击「全部」查看工作任务与会议</div>
         </div>
       </ProjectSection>
 

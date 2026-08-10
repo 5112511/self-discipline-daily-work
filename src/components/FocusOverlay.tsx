@@ -6,9 +6,9 @@ import { useToast } from './Toast'
 import { IconClose, IconPlay, IconPause, IconStop, IconTrash, IconCheck, IconPlus } from './Icons'
 
 const DENSITY: Record<Domain, string> = {
-  content: '#1a1a1a', ai: '#4a4a4a', travel: '#6b6b6b', health: '#8a8a8a', class: '#a5a5a5', life: '#c4c4c4',
+  content: '#1a1a1a', ai: '#4a4a4a', health: '#8a8a8a', class: '#a5a5a5', work: '#b56b35', life: '#c4c4c4',
 }
-const DOMAINS: Domain[] = ['content', 'ai', 'travel', 'health', 'class', 'life']
+const DOMAINS: Domain[] = ['content', 'ai', 'health', 'class', 'work', 'life']
 
 function fmtClock(sec: number): string {
   const m = Math.floor(sec / 60)
@@ -120,8 +120,8 @@ export function FocusOverlay({ open, onClose, presetTaskId }: { open: boolean; o
   const [domain, setDomain] = useState<Domain>('content')
   const [taskId, setTaskId] = useState<string | undefined>(presetTaskId)
 
-  // 任务建议：doing/pending 的任务
-  const suggestions = data.tasks.filter(t => t.status === 'doing' || t.status === 'pending').slice(0, 8)
+// 任务建议：doing/pending 的任务
+const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing' || t.status === 'pending')).slice(0, 8)
 
   useEffect(() => {
     if (presetTaskId) {

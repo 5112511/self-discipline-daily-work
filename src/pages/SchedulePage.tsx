@@ -4,20 +4,31 @@ import { store } from '../store'
 import { DOMAIN_LABEL, type Domain } from '../types'
 import { useToast } from '../components/Toast'
 import { IconPlus } from '../components/Icons'
-import { monthMatrix, weekMatrix, todayYmd, DOW_MON, MONTH_NAMES, exportICS, importICS } from '../calendar'
+import { monthMatrix, weekMatrix, todayYmd, DOW_MON, MONTH_NAMES, exportICS, importICS, parseDueDate } from '../calendar'
 import { domainColor } from '../palette'
 
 // 日程分类色：软背景 + 深字 + 边框主色
 const DENSITY: Record<Domain, string> = Object.fromEntries(
-  (['content', 'ai', 'travel', 'health', 'class', 'life'] as Domain[]).map(d => [d, domainColor(d).soft])
+  (['content', 'ai', 'health', 'class', 'work', 'life'] as Domain[]).map(d => [d, domainColor(d).soft])
 ) as Record<Domain, string>
 const DENSITY_FG: Record<Domain, string> = Object.fromEntries(
-  (['content', 'ai', 'travel', 'health', 'class', 'life'] as Domain[]).map(d => [d, domainColor(d).ink])
+  (['content', 'ai', 'health', 'class', 'work', 'life'] as Domain[]).map(d => [d, domainColor(d).ink])
 ) as Record<Domain, string>
 const DENSITY_BORDER: Record<Domain, string> = Object.fromEntries(
-  (['content', 'ai', 'travel', 'health', 'class', 'life'] as Domain[]).map(d => [d, domainColor(d).base])
+  (['content', 'ai', 'health', 'class', 'work', 'life'] as Domain[]).map(d => [d, domainColor(d).base])
 ) as Record<Domain, string>
-const DOMAINS: Domain[] = ['content', 'ai', 'travel', 'health', 'class', 'life']
+const DOMAINS: Domain[] = ['content', 'ai', 'health', 'class', 'work', 'life']
+
+// 把未删除任务的 dueDate 解析后按日期聚合（用于日历标记）
+function tasksByDate(tasks: { dueDate?: string; id: string; title: string; domain: any; status: string; dueTime?: string }[]): Record<string, { id: string; title: string; domain: Domain; done: boolean; dueTime?: string }[]> {
+  const m: Record<string, { id: string; title: string; domain: Domain; done: boolean; dueTime?: string }[]> = {}
+  for (const t of tasks) {
+    const ymd = parseDueDate(t.dueDate)
+    if (!ymd) continue
+    (m[ymd] ||= []).push({ id: t.id, title: t.title, domain: t.domain as Domain, done: t.status === 'done', dueTime: t.dueTime })
+  }
+  return m
+}
 
 function DayView({ selectedDate, onJump }: { selectedDate: string; onJump?: (ymd: string) => void }) {
   const data = useStore()
@@ -27,6 +38,9 @@ function DayView({ selectedDate, onJump }: { selectedDate: string; onJump?: (ymd
 
   // 该日日程
   const daySchedules = data.schedules.filter(s => s.date === selectedDate)
+  // 该日截止的任务（用 dueDate 解析）
+  const tByDate = tasksByDate(data.tasks)
+  const dayTasks = tByDate[selectedDate] || []
   const startHour = 7, endHour = 23
   const hours: number[] = []
   for (let h = startHour; h <= endHour; h++) hours.push(h)
@@ -53,7 +67,7 @@ function DayView({ selectedDate, onJump }: { selectedDate: string; onJump?: (ymd
         <div className="day-head">
           <div>
             <div className="t-h3">{selDate.getMonth() + 1}月{selDate.getDate()}日</div>
-            <div className="t-cap">周{DOW_MON[(selDate.getDay() + 6) % 7]} · {daySchedules.length} 项日程</div>
+            <div className="t-cap">周{DOW_MON[(selDate.getDay() + 6) % 7]} · {daySchedules.length} 项日程{dayTasks.length > 0 ? ` · ${dayTasks.length} 项任务截止` : ''}</div>
           </div>
           {isToday ? <span className="chip chip-dark">今天</span> : <button className="chip line tap" onClick={() => onJump?.(todayYmd())}>回今天</button>}
         </div>
@@ -95,6 +109,18 @@ function DayView({ selectedDate, onJump }: { selectedDate: string; onJump?: (ymd
           })}
         </div>
       </div>
+      {dayTasks.length > 0 && (
+        <div className="card card-pad" style={{ marginTop: 10 }}>
+          <div className="t-sub" style={{ marginBottom: 8 }}>今日截止任务</div>
+          {dayTasks.map(t => (
+            <div key={t.id} className="day-task-row">
+              <span className="day-task-time">{t.dueTime || 'DDL'}</span>
+              <span className={'day-task-title' + (t.done ? ' done' : '')}>{t.title}</span>
+              {t.done ? <span className="chip">✓</span> : <span className="chip line">待完成</span>}
+            </div>
+          ))}
+        </div>
+      )}
       <button className="chip chip-dark tap" style={{ marginTop: 10 }} onClick={() => { setForm({ ...form, date: selectedDate }); setAdding(true) }}><IconPlus size={14} /> 新建日程</button>
 
       {adding && (
@@ -141,18 +167,23 @@ function WeekView({ year, weekIdx, onJump }: { year: number; weekIdx: number; on
   const days = weekMatrix(year, weekIdx)
   const byDate: Record<string, typeof data.schedules> = {}
   data.schedules.forEach(s => { (byDate[s.date] ||= []).push(s) })
+  const tByDate = tasksByDate(data.tasks)
   return (
     <div className="card card-pad week-view">
       <div className="week-days-row">
         {days.map(d => {
           const evts = byDate[d.ymd] || []
-          const dotColor = evts[0] ? domainColor(evts[0].domain).base : 'var(--ink-3)'
+          const tasks = tByDate[d.ymd] || []
+          const dotColor = evts[0] ? domainColor(evts[0].domain).base : (tasks[0] ? domainColor(tasks[0].domain).base : 'var(--ink-3)')
+          const hasTask = tasks.length > 0
+          const undoneTasks = tasks.filter(t => !t.done).length
           return (
           <button key={d.ymd} className={'week-day-cell tap' + (d.isToday ? ' today' : '')} onClick={() => onJump(d.ymd)}>
             <div className="week-day-dow">周{DOW_MON[(d.weekday + 6) % 7]}</div>
             <div className="week-day-num">{d.day}</div>
             <div className="week-day-dots">
               {evts.length > 0 && <span className="week-day-dot" style={{ background: dotColor }} />}
+              {hasTask && <span className={'cal-day-task' + (undoneTasks > 0 ? ' todo' : '')} title={`${tasks.length} 个任务截止`} />}
             </div>
           </button>
           )
@@ -162,7 +193,8 @@ function WeekView({ year, weekIdx, onJump }: { year: number; weekIdx: number; on
       <div className="week-evt-list">
         {days.map(d => {
           const evts = data.schedules.filter(s => s.date === d.ymd)
-          if (evts.length === 0) return null
+          const tasks = tByDate[d.ymd] || []
+          if (evts.length === 0 && tasks.length === 0) return null
           return (
             <div key={d.ymd} className="week-evt-group">
               <div className="week-evt-date">{(d.date.getMonth() + 1)}/{d.day}</div>
@@ -173,11 +205,17 @@ function WeekView({ year, weekIdx, onJump }: { year: number; weekIdx: number; on
                     <span className="week-evt-title">{e.title}</span>
                   </div>
                 ))}
+                {tasks.map(t => (
+                  <div key={t.id} className="week-evt-item task" style={{ background: t.done ? 'var(--bg-soft)' : 'transparent', color: t.done ? 'var(--ink-3)' : DENSITY_FG[t.domain], borderColor: DENSITY_BORDER[t.domain] }}>
+                    <span className="week-evt-time">{t.dueTime || 'DDL'}</span>
+                    <span className="week-evt-title">{t.title}{t.done ? ' ✓' : ''}</span>
+                  </div>
+                ))}
               </div>
             </div>
           )
         })}
-        {days.every(d => (data.schedules.filter(s => s.date === d.ymd).length === 0)) && <div className="t-cap" style={{ padding: 12, textAlign: 'center' }}>本周暂无日程</div>}
+        {days.every(d => (data.schedules.filter(s => s.date === d.ymd).length === 0 && (tByDate[d.ymd] || []).length === 0)) && <div className="t-cap" style={{ padding: 12, textAlign: 'center' }}>本周暂无日程与任务</div>}
       </div>
     </div>
   )
@@ -188,23 +226,46 @@ function MonthView({ year, month, onJump }: { year: number; month: number; onJum
   const weeks = monthMatrix(year, month)
   const byDate: Record<string, typeof data.schedules> = {}
   data.schedules.forEach(s => { (byDate[s.date] ||= []).push(s) })
+  const tByDate = tasksByDate(data.tasks)
   const today = todayYmd()
+  const legendDomains = DOMAINS.filter(domain => data.schedules.some(s => s.domain === domain) || data.tasks.some(t => t.domain === domain))
+
   return (
     <div className="card card-pad month-view">
+      <div className="month-legend" aria-label="日程分类">
+        {(legendDomains.length > 0 ? legendDomains : DOMAINS).map(domain => (
+          <span key={domain} className="month-legend-item">
+            <span className="month-legend-dot" style={{ background: domainColor(domain).base }} />
+            {DOMAIN_LABEL[domain]}
+          </span>
+        ))}
+      </div>
       <div className="cal-weeknames">
         {DOW_MON.map(n => <div key={n} className="cal-dow">{n}</div>)}
       </div>
-      <div className="cal-grid">
+      <div className="cal-grid month-task-grid">
         {weeks.map((w, wi) => (
           <div key={wi} className="cal-week">
             {w.map(c => {
               const evts = byDate[c.ymd] || []
-              const cnt = evts.length
-              const dotColor = evts[0] ? domainColor(evts[0].domain).base : 'var(--ink-3)'
+              const tasks = tByDate[c.ymd] || []
+              const items = [
+                ...evts.map(e => ({ id: e.id, title: e.title, domain: e.domain as Domain, done: e.done, time: e.start })),
+                ...tasks.map(t => ({ id: t.id, title: t.title, domain: t.domain, done: t.done, time: t.dueTime || 'DDL' })),
+              ]
+              const visibleItems = items.slice(0, 3)
+              const extraCount = Math.max(items.length - visibleItems.length, 0)
               return (
-                <button key={c.ymd} className={'cal-day' + (c.inMonth ? '' : ' out') + (cnt > 0 ? ' has' : '') + (c.ymd === today ? ' today' : '')} onClick={() => onJump(c.ymd)}>
+                <button key={c.ymd} className={'cal-day month-task-day' + (c.inMonth ? '' : ' out') + (items.length > 0 ? ' has' : '') + (c.ymd === today ? ' today' : '')} onClick={() => onJump(c.ymd)}>
                   <span className="cal-day-num">{c.day}</span>
-                  {cnt > 0 && <span className="cal-day-dot" style={{ background: dotColor }} />}
+                  <span className="month-day-items">
+                    {visibleItems.map(item => (
+                      <span key={`${item.id}-${item.time}`} className={'month-task-item' + (item.done ? ' done' : '')} style={{ background: DENSITY[item.domain], borderLeftColor: DENSITY_BORDER[item.domain], color: DENSITY_FG[item.domain] }} title={item.title}>
+                        {item.title}
+                      </span>
+                    ))}
+                    {extraCount > 0 && <span className="month-more">+{extraCount} 更多</span>}
+                  </span>
                 </button>
               )
             })}

@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
-import { DOMAIN_LABEL, DOMAIN_ICON, type Task, type Schedule, type Project } from '../types'
+import { DOMAIN_LABEL, DOMAIN_ICON, type Task, type Schedule, type Project, type Domain } from '../types'
 import { useTaskSheet, useFocus } from '../App'
 import { useConfirm } from '../components/ConfirmSheet'
 import { useToast } from '../components/Toast'
@@ -35,7 +35,7 @@ function Ring({ value, size = 56, stroke = 5 }: { value: number; size?: number; 
 
 const PRIORITY_LABEL = { high: '高', medium: '中', low: '低' } as const
 
-function Top3Card({ task }: { task: Task }) {
+function Top3Card({ task, onChanged }: { task: Task; onChanged?: () => void }) {
   const { openEdit } = useTaskSheet()
   const { open: openFocus } = useFocus()
   const toast = useToast()
@@ -47,9 +47,10 @@ function Top3Card({ task }: { task: Task }) {
       store.updateTask(task.id, { status: 'pending', progress: 0, completedAt: undefined })
       toast('已取消完成')
     } else {
-      store.updateTask(task.id, { status: 'done', progress: 100, completedAt: new Date().toISOString().slice(0, 10) })
+      store.updateTask(task.id, { status: 'done', progress: 100 })
       toast('已完成 ✓')
     }
+    onChanged?.()
   }
   const delay = async () => {
     const ok = await confirm({ title: '延期这项任务？', message: '将从今日移出，回到待处理。', confirmText: '延期' })
@@ -60,6 +61,7 @@ function Top3Card({ task }: { task: Task }) {
     const rest = data.tasks.filter(t => t.inTop3 && t.id !== task.id).sort((a,b) => (a.top3Order??0)-(b.top3Order??0)).map(t => t.id)
     store.reorderTop3(rest)
     toast('已延期')
+    onChanged?.()
   }
   const remove = () => {
     store.updateTask(task.id, { inTop3: false, top3Order: undefined })
@@ -67,6 +69,14 @@ function Top3Card({ task }: { task: Task }) {
     const rest = data.tasks.filter(t => t.inTop3).sort((a,b) => (a.top3Order??0)-(b.top3Order??0)).map(t => t.id)
     store.reorderTop3(rest)
     toast('已移出 Top 3')
+    onChanged?.()
+  }
+  const del = async () => {
+    const ok = await confirm({ title: '删除这项任务？', message: '删除后可在历史记录中恢复。', confirmText: '删除' })
+    if (!ok) return
+    store.deleteTask(task.id)
+    toast('已删除')
+    onChanged?.()
   }
 
   return (
@@ -95,6 +105,7 @@ function Top3Card({ task }: { task: Task }) {
         <button className="tap top3-act" onClick={toggleDone}>{done ? '✓ 已完成' : '完成'}</button>
         <button className="tap top3-act" onClick={delay}>延期</button>
         <button className="tap top3-act" onClick={remove}>移出</button>
+        <button className="tap top3-act" onClick={del} style={{ color: 'var(--danger)' }}>删除</button>
       </div>
     </div>
   )
@@ -146,21 +157,22 @@ function DomainCard({ p }: { p: Project }) {
 const SOURCE_ICON: Record<string, string> = { voice: '🎙', gmail: '✉', image: '▦', web: '⌘', manual: '✎', other: '•' }
 const SOURCE_LABEL: Record<string, string> = { manual: '手动', voice: '语音', gmail: 'Gmail', image: '图片', web: '网页', other: '其他' }
 
-export function TodayPage({ onSwitchTab }: { onSwitchTab?: (t: TabKey) => void }) {
+export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: TabKey) => void; onOpenHistory?: () => void }) {
   const data = useStore()
   const { openNew } = useTaskSheet()
   const toast = useToast()
   const confirm = useConfirm()
   const now = '14:30'
+  const [showDone, setShowDone] = useState(true)
 
-  // 从 store 数据派生首页各模块
-  const allTasks = data.tasks
+  // 从 store 数据派生首页各模块（统一过滤已软删除）
+  const allTasks = data.tasks.filter(t => !t.deletedAt)
   const top3 = allTasks.filter(t => t.inTop3).sort((a, b) => (a.top3Order ?? 99) - (b.top3Order ?? 99)).slice(0, 3)
   const overdueTasks = allTasks.filter(t => t.overdue && t.status !== 'done')
   const reminders = allTasks.filter(t => !t.inTop3 && t.status !== 'done' && t.status !== 'cancelled').slice(0, 8)
-  const doneToday = allTasks.filter(t => t.status === 'done').length
-  const totalToday = allTasks.filter(t => t.inToday || t.inTop3).length
-  const todayProgress = totalToday > 0 ? Math.round((doneToday / totalToday) * 100) : 0
+  const doneTasks = allTasks.filter(t => t.status === 'done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
+  const totalToday = allTasks.filter(t => t.inToday || t.inTop3 || t.status === 'done').length
+  const todayProgress = totalToday > 0 ? Math.round((doneTasks.length / totalToday) * 100) : 0
   const inspirations = data.inspirations.filter(i => !i.archived).slice(0, 5)
   const todayTimeline = data.schedules
 
@@ -168,12 +180,16 @@ export function TodayPage({ onSwitchTab }: { onSwitchTab?: (t: TabKey) => void }
   const streak = data.meta.streakDays
 
   const completeReminder = (id: string) => {
-    store.updateTask(id, { status: 'done', progress: 100, completedAt: new Date().toISOString().slice(0, 10) })
+    store.updateTask(id, { status: 'done', progress: 100 })
     toast('已完成 ✓')
   }
   const delayReminder = (id: string) => {
     store.updateTask(id, { inToday: false })
     toast('已延期')
+  }
+  const deleteReminder = async (id: string) => {
+    const ok = await confirm({ title: '删除这条任务？', message: '删除后可在历史记录中恢复。', confirmText: '删除' })
+    if (ok) { store.deleteTask(id); toast('已删除') }
   }
   const ignoreReminder = async (id: string) => {
     const ok = await confirm({ title: '忽略这条提醒？', message: '将从提醒列表移除（不删除任务）。', confirmText: '忽略' })
@@ -250,6 +266,37 @@ export function TodayPage({ onSwitchTab }: { onSwitchTab?: (t: TabKey) => void }
         )}
       </div>
 
+      {/* 3.5 今日已完成（不消失，可折叠） */}
+      {doneTasks.length > 0 && (
+        <div className="section">
+          <div className="section-head">
+            <span className="section-title">今日已完成 · {doneTasks.length}</span>
+            <button className="section-action" onClick={() => setShowDone(v => !v)}>{showDone ? '收起' : '展开'}</button>
+          </div>
+          {showDone && (
+            <div className="card reminder-list">
+              {doneTasks.map((t, i) => (
+                <div key={t.id} className={'reminder-row' + (i < doneTasks.length - 1 ? ' b' : '')} style={{ opacity: 0.72 }}>
+                  <span className="icn-box" style={{ width: 28, height: 28, background: 'var(--soft)', color: 'var(--ink)' }}><IconCheck size={14} /></span>
+                  <div style={{ flex: 1 }}>
+                    <div className="t-body" style={{ textDecoration: 'line-through' }}>{t.title}</div>
+                    <div className="t-cap">{DOMAIN_LABEL[t.domain]} · {t.completedAt}</div>
+                  </div>
+                  <div className="reminder-acts">
+                    <button className="tap t-cap" onClick={() => { store.updateTask(t.id, { status: 'pending', progress: 0, completedAt: undefined }); toast('已恢复') }}>恢复</button>
+                    <button className="tap t-cap" style={{ color: 'var(--danger)' }} onClick={async () => { const ok = await confirm({ title: '删除这项任务？', message: '删除后可在历史记录中恢复。', confirmText: '删除' }); if (ok) { store.deleteTask(t.id); toast('已删除') } }}>删除</button>
+                  </div>
+                </div>
+              ))}
+              <div style={{ padding: '10px 14px 4px' }}>
+                <button className="tap chip line" style={{ width: '100%' }} onClick={() => onOpenHistory?.()}>查看全部历史 ›</button>
+              </div>
+            </div>
+          )}
+        </div>
+      )}
+
+
       {/* 4. 时间轴 */}
       <div className="section">
         <div className="section-head">
@@ -297,6 +344,7 @@ export function TodayPage({ onSwitchTab }: { onSwitchTab?: (t: TabKey) => void }
                   <button className="tap t-cap" onClick={() => delayReminder(r.id)}>延期</button>
                   <button className="tap t-cap" onClick={() => completeReminder(r.id)}>完成</button>
                   <button className="tap t-cap" onClick={() => ignoreReminder(r.id)}>忽略</button>
+                  <button className="tap t-cap" style={{ color: 'var(--danger)' }} onClick={() => deleteReminder(r.id)}>删除</button>
                 </div>
               </div>
             ))}

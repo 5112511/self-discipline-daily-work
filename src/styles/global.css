@@ -88,7 +88,7 @@ input, textarea, select { font-family: inherit; }
 .app {
   position: relative;
   min-height: 100vh;
-  padding-top: var(--safe-top);
+  padding-top: calc(var(--safe-top) + 8px);
   padding-bottom: calc(84px + var(--safe-bottom));
 }
 
