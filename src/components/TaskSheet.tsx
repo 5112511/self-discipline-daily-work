@@ -91,7 +91,10 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
           <label className="tf-label">所属领域</label>
           <div className="tf-chips">
             {DOMAINS.map(d => (
-              <button key={d} className={'chip ' + (form.domain === d ? 'chip-dark' : 'line') + ' tap'} onClick={() => set('domain', d)}>
+              <button key={d} className={'chip ' + (form.domain === d ? 'chip-dark' : 'line') + ' tap'} onClick={() => {
+                // 切换领域时清空 projectId，避免残留旧领域的归属；addTask 会按新 domain 自动归属
+                setForm(f => ({ ...f, domain: d, projectId: undefined }))
+              }}>
                 {DOMAIN_ICON[d]} {DOMAIN_LABEL[d]}
               </button>
             ))}

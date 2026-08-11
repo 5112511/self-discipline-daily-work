@@ -247,7 +247,7 @@ function WorkDetail({ p }: { p: Project }) {
 function ProjectTasks({ p, toast, onEditTask }: { p: Project; toast: (s: string) => void; onEditTask: (task: import('../types').Task) => void }) {
   const data = useStore()
   // 兼容旧任务：没有 projectId 但领域一致时，也归入当前项目
-  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || (!t.projectId && t.domain === p.domain)))
+  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || t.domain === p.domain))
   if (tasks.length === 0) return null
 
   const toggleStatus = (id: string, status: string) => {

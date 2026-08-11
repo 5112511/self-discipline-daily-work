@@ -296,6 +296,10 @@
 .week-evt-item.task .week-evt-time { opacity: 0.7; }
 .week-evt-time { font-variant-numeric: tabular-nums; opacity: .8; flex: none; }
 .week-evt-title { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.project-task-preview { margin-top: 8px; }
+.project-task-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; margin-bottom: 5px; }
+.project-task-row { display: flex; align-items: center; gap: 8px; min-height: 34px; padding: 5px 0; }
+.project-task-row .life-check { flex: none; }
 
 /* ===== 年视图 ===== */
 .year-grid { display: grid; grid-template-columns: repeat(3, 1fr); gap: 8px; }

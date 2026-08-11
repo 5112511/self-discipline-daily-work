@@ -54,7 +54,7 @@ function Ring({ value, size = 46, stroke = 4 }: { value: number; size?: number; 
 function ProjectSection({ p, onAll, children }: { p: Project; onAll?: () => void; children: React.ReactNode }) {
   const data = useStore()
   // 兼容旧任务：历史任务可能只有 domain 没有 projectId，仍归入对应项目展示
-  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || (!t.projectId && t.domain === p.domain)))
+  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || t.domain === p.domain))
   const doneCount = tasks.filter(t => t.status === 'done').length
   const taskProgress = tasks.length ? Math.round(tasks.reduce((sum, t) => sum + (t.status === 'done' ? 100 : t.progress || 0), 0) / tasks.length) : null
   return (
