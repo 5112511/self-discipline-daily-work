@@ -18,6 +18,24 @@ const TABLES = {
   focusSessions: 'focus_sessions',
 } as const
 
+// 清空本地数据时同步删除云端数据，避免下一次拉取把旧演示数据合并回来
+export async function clearCloudData(userId: string): Promise<{ ok: boolean; error?: string }> {
+  const sb = getSupabase()
+  if (!sb) return { ok: false, error: 'Supabase 未配置' }
+  try {
+    for (const table of Object.values(TABLES)) {
+      const { error } = await sb.from(table).delete().eq('user_id', userId)
+      if (error) throw error
+    }
+    const { error } = await sb.from('user_settings').delete().eq('user_id', userId)
+    if (error) throw error
+    localStorage.setItem(SYNC_KEY, new Date().toISOString())
+    return { ok: true }
+  } catch (e: any) {
+    return { ok: false, error: e?.message || String(e) }
+  }
+}
+
 // ===== 上传：本地 → 云端 =====
 // 登录后或定期调用，把本地数据推到云端（upsert）
 export async function pushToCloud(data: AppData, userId: string): Promise<{ ok: boolean; error?: string }> {

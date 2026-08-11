@@ -1,6 +1,6 @@
 import type { DemoData, Task, Inspiration, Project, Schedule, Domain, FocusSession, FocusSettings, Ledger, LedgerAccount, LedgerTxn, LedgerSnapshot, TrendingTopic, TrendingCategory, TrendingSource, BloggerRef, TrendingPlatform } from './types'
 import { demoData as defaultDemo } from './data'
-import { pushToCloud, pullFromCloud, mergeData } from './lib/sync'
+import { pushToCloud, pullFromCloud, mergeData, clearCloudData } from './lib/sync'
 
 // ===== 玥莹的 Personal OS · 数据层（LocalStorage 持久化）=====
 
@@ -354,16 +354,33 @@ export const store = {
   // ===== 演示数据 =====
   resetDemo() { const init = buildInitialData(); write(init) },
 
-  clearAll() {
+  async clearAll() {
     // 生成完整、安全的空数据，每个字段都有兜底，防止任何 undefined 导致渲染白屏
     // projects 保留七大主线骨架（清空的是任务/日程/账本等内容数据，不是项目结构）
     const cur = read()
     const fresh = buildInitialData()
+    // 只保留项目骨架，必须从 fresh 生成空结构，不能复制当前项目里的演示内容
+    const emptyProjects = fresh.projects.map(p => {
+      const base = {
+        id: p.id,
+        domain: p.domain,
+        name: p.name,
+        progress: 0,
+        todoCount: 0,
+        updatedAt: todayStr(),
+      }
+      if (p.domain === 'content') return { ...base, content: [] }
+      if (p.domain === 'ai') return { ...base, ai: { learning: [], stats: { ideas: 0, learning: 0, practiced: 0, output: 0 } } }
+      if (p.domain === 'health') return { ...base, health: { goal: '', stage: '', weekOutput: '', investorSteps: [], milestones: [] } }
+      if (p.domain === 'class') return { ...base, classes: { weekCount: 0, sessions: [], photosUntreated: 0, photosUnsent: 0 } }
+      if (p.domain === 'work') return { ...base, work: { meetings: [] } }
+      return { ...base, life: { items: [] } }
+    })
     const empty: AppData = {
       version: VERSION,
       tasks: [],
       inspirations: [],
-      projects: (cur.projects && cur.projects.length >= 7) ? cur.projects : fresh.projects,
+      projects: emptyProjects,
       schedules: [],
       meta: cur.meta ?? { todayProgress: 0, streakDays: 0, greeting: '全新开始', mood: '○' },
       settings: cur.settings ?? { avatarText: '玥', displayName: '玥莹' },
@@ -378,6 +395,7 @@ export const store = {
       trendingSource: cur.trendingSource ?? defaultTrendingSource(),
     }
     write(empty)
+    if (currentUserId) await clearCloudData(currentUserId)
   },
 
   exportJSON(): string { return JSON.stringify(read(), null, 2) },
@@ -402,7 +420,7 @@ export const store = {
       meetingLocation: t.meetingLocation,
       meetingContact: t.meetingContact,
       domain: t.domain || 'life',
-      projectId: t.projectId,
+      projectId: t.projectId || data.projects.find(p => p.domain === (t.domain || 'life'))?.id,
       priority: t.priority || 'medium',
       suggestedPriority: t.suggestedPriority,
       dueDate: t.dueDate,

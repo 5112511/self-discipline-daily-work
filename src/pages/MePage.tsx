@@ -181,7 +181,7 @@ export function MePage({ auth, onExitOffline }: { auth?: { user: { id: string; e
   }
   const clearAll = async () => {
     const ok = await confirm({ title: '清除所有数据？', message: '将清空任务、项目、日程、灵感。此操作不可恢复。', confirmText: '清除', danger: true })
-    if (ok) { store.clearAll(); toast('已清除全部数据') }
+    if (ok) { await store.clearAll(); toast('已清除全部数据') }
   }
   const exportData = () => {
     const blob = new Blob([store.exportJSON()], { type: 'application/json' })
