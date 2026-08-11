@@ -78,7 +78,7 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
           if (title) { store.addContent(p.id, title); toast('已添加灵感') }
         }}><IconPlus size={13} /> 新增</button>
       </div>
-      <div className="content-pipeline">
+          <div className="content-pipeline">
         {CONTENT_STAGES.map(s => (
           <div key={s} className="pipe-col">
             <div className="pipe-head">{CONTENT_STAGE_LABEL[s]}</div>
