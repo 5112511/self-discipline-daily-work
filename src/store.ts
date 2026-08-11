@@ -390,7 +390,8 @@ export const store = {
       weekDist: [],
       focusSessions: [],
       focusSettings: cur.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'health', 'class', 'work', 'life'], sound: true, notification: true },
-      ledger: cur.ledger ?? defaultLedger(todayStr()),
+      // 账户、资产、流水和净资产快照也必须彻底清空，不能沿用当前账本
+      ledger: { accounts: [], txns: [], snapshots: [] },
       trendingTopics: pickTrending(8),
       trendingSource: cur.trendingSource ?? defaultTrendingSource(),
     }
