@@ -52,6 +52,11 @@ function Ring({ value, size = 46, stroke = 4 }: { value: number; size?: number; 
 }
 
 function ProjectSection({ p, onAll, children }: { p: Project; onAll?: () => void; children: React.ReactNode }) {
+  const data = useStore()
+  // 兼容旧任务：历史任务可能只有 domain 没有 projectId，仍归入对应项目展示
+  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || (!t.projectId && t.domain === p.domain)))
+  const doneCount = tasks.filter(t => t.status === 'done').length
+  const taskProgress = tasks.length ? Math.round(tasks.reduce((sum, t) => sum + (t.status === 'done' ? 100 : t.progress || 0), 0) / tasks.length) : null
   return (
     <div className="section proj-section" id={'proj-' + p.id} style={{ scrollMarginTop: 12 }}>
       <div className="section-head">
@@ -59,6 +64,25 @@ function ProjectSection({ p, onAll, children }: { p: Project; onAll?: () => void
         <button className="section-action tap" onClick={() => onAll?.()}>全部 ›</button>
       </div>
       {children}
+      {tasks.length > 0 && (
+        <div className="card card-pad project-task-preview">
+          <div className="project-task-head">
+            <span className="t-sub">任务合集 · {doneCount}/{tasks.length} 已完成</span>
+            {taskProgress != null && <span className="t-cap mono">任务进度 {taskProgress}%</span>}
+          </div>
+          <div className="bar" style={{ marginBottom: 6 }}><i style={{ width: `${taskProgress || 0}%` }} /></div>
+          {tasks.slice(0, 5).map((task, index) => (
+            <div key={task.id} className={'project-task-row' + (index < Math.min(tasks.length, 5) - 1 ? ' b' : '')}>
+              <button className={`life-check ${task.status === 'done' ? 'done' : ''}`} onClick={() => store.updateTask(task.id, task.status === 'done' ? { status: 'pending', progress: task.progress || 0, completedAt: undefined } : { status: 'done', progress: 100 })}>
+                {task.status === 'done' ? '✓' : '○'}
+              </button>
+              <span className={`t-body${task.status === 'done' ? ' struck' : ''}`} style={{ flex: 1, minWidth: 0, overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{task.title}</span>
+              <span className="t-cap">{task.status === 'done' ? '已完成' : `${task.progress || 0}%`}</span>
+            </div>
+          ))}
+          {tasks.length > 5 && <div className="t-cap" style={{ marginTop: 7, textAlign: 'center' }}>点击「全部」查看其余 {tasks.length - 5} 项任务</div>}
+        </div>
+      )}
     </div>
   )
 }
