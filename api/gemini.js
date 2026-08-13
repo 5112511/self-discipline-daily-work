@@ -1,5 +1,5 @@
-// Gemini 2.0 Flash 已下线，使用当前稳定的 Gemini 2.5 Flash
-const MODEL = 'gemini-2.5-flash'
+// 使用轻量模型，适配新项目的免费额度与访问权限
+const MODEL = 'gemini-2.5-flash-lite'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
