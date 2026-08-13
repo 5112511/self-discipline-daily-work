@@ -117,7 +117,15 @@
 .pipe-arrow:disabled { opacity: .3; }
 .pipe-ai-btn { display: block; margin-top: 7px; padding: 4px 7px; border: 1px solid var(--line); border-radius: 5px; background: var(--bg-card); color: var(--ink-2); font-size: 10px; }
 .pipe-ai-btn:disabled { opacity: .55; }
+.content-record-form { display: flex; flex-direction: column; gap: 6px; margin-top: 8px; padding-top: 8px; border-top: 1px solid var(--line-2); }
+.content-record-form textarea, .content-record-select { width: 100%; border: 1px solid var(--line); border-radius: 6px; background: var(--bg-card); color: var(--ink); padding: 6px; font: inherit; font-size: 11px; resize: vertical; }
+.content-record-select { padding: 5px 6px; }
+.content-record-form .chip { align-self: flex-start; }
 .gemini-result { margin-top: 14px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--bg-soft); }
+.creative-knowledge { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.knowledge-card { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+.knowledge-card:last-child { border-bottom: none; }
+.knowledge-card .t-body { margin-top: 4px; font-size: 12px; line-height: 1.55; color: var(--ink-2); }
 .gemini-result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 9px; border-bottom: 1px solid var(--line-2); }
 .gemini-block { margin-top: 11px; }
 .gemini-titles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }

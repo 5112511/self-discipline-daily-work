@@ -1,7 +1,7 @@
 import React, { useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
-import { DOMAIN_LABEL, DOMAIN_ICON, CONTENT_STAGE_LABEL, type Project, type ContentStage } from '../types'
+import { DOMAIN_LABEL, DOMAIN_ICON, CONTENT_STAGE_LABEL, CONTENT_RECORD_KIND_LABEL, type Project, type ContentStage, type ContentRecordKind } from '../types'
 import { useToast } from '../components/Toast'
 import { IconPlus, IconTrash } from '../components/Icons'
 import { domainColor } from '../palette'
@@ -72,7 +72,10 @@ export function ProjectDetailPage({ projectId, onBack, onEditTask }: { projectId
 function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id: string, dir: 1 | -1) => void; toast: (s: string) => void }) {
   const [aiLoading, setAiLoading] = useState(false)
   const [aiTarget, setAiTarget] = useState<string | null>(null)
-  const [aiResult, setAiResult] = useState<{ titles?: string[]; angle?: string; outline?: string[]; nextAction?: string; raw?: string } | null>(null)
+  const [aiResult, setAiResult] = useState<{ titles?: string[]; angle?: string; outline?: string[]; nextAction?: string; advice?: string; knowledgeTitle?: string; knowledgeContent?: string; raw?: string } | null>(null)
+  const [recordTarget, setRecordTarget] = useState<string | null>(null)
+  const [recordKind, setRecordKind] = useState<ContentRecordKind>('script')
+  const [recordText, setRecordText] = useState('')
 
   const askGemini = async (content: NonNullable<Project['content']>[number]) => {
     setAiLoading(true)
@@ -82,11 +85,15 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
       const response = await fetch('/api/gemini', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ title: content.title, platform: content.platform, stage: CONTENT_STAGE_LABEL[content.stage], nextAction: content.nextAction }),
+        body: JSON.stringify({ action: 'creative-analysis', title: content.title, platform: content.platform, stage: CONTENT_STAGE_LABEL[content.stage], nextAction: content.nextAction, records: content.stageRecords || [] }),
       })
       const result = await response.json()
       if (!response.ok) throw new Error(result.error || 'Gemini 请求失败')
       setAiResult(result)
+      if (result.knowledgeTitle && result.knowledgeContent) {
+        store.addCreativeKnowledge(p.id, { title: result.knowledgeTitle, content: result.knowledgeContent, sourceContentId: content.id })
+        toast('AI 建议已沉淀到创作知识库')
+      }
     } catch (error) {
       toast(error instanceof Error ? error.message : 'Gemini 暂时不可用')
     } finally {
@@ -112,7 +119,9 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
                   <div className="pipe-platform">{c.platform}</div>
                   <div className="pipe-title">{c.title}</div>
                   {c.nextAction && <div className="t-cap">→ {c.nextAction}</div>}
+                  <button className="pipe-ai-btn tap" onClick={() => { setRecordTarget(recordTarget === c.id ? null : c.id); setRecordText('') }}>记录 {c.stageRecords?.length ? `(${c.stageRecords.length})` : ''}</button>
                   <button className="pipe-ai-btn tap" onClick={() => askGemini(c)} disabled={aiLoading}>✦ {aiLoading && aiTarget === c.id ? '分析中' : 'AI建议'}</button>
+                  {recordTarget === c.id && <div className="content-record-form"><select value={recordKind} onChange={e => setRecordKind(e.target.value as ContentRecordKind)} className="content-record-select">{(Object.keys(CONTENT_RECORD_KIND_LABEL) as ContentRecordKind[]).map(kind => <option key={kind} value={kind}>{CONTENT_RECORD_KIND_LABEL[kind]}</option>)}</select><textarea value={recordText} onChange={e => setRecordText(e.target.value)} placeholder="记录口播、创作卡点、同行观察或阶段复盘…" rows={3} /><button className="chip chip-dark tap" onClick={() => { if (!recordText.trim()) return toast('先写下一条记录'); store.addContentStageRecord(p.id, c.id, recordKind, recordText.trim()); setRecordText(''); toast('已写入阶段记录') }}>保存记录</button></div>}
                   <div className="pipe-acts">
                     <button className="pipe-arrow tap" disabled={s === 'idea'} onClick={() => moveContent(c.id, -1)}>‹</button>
                     <button className="pipe-arrow tap" disabled={s === 'published'} onClick={() => moveContent(c.id, 1)}>›</button>
@@ -129,11 +138,13 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
           <div className="gemini-result-head"><span className="t-sub">Gemini 创作建议</span><button className="t-cap tap" onClick={() => setAiResult(null)}>关闭</button></div>
           {aiResult.titles?.length ? <div className="gemini-block"><span className="t-cap">推荐标题</span><div className="gemini-titles">{aiResult.titles.map(title => <span key={title} className="chip">{title}</span>)}</div></div> : null}
           {aiResult.angle && <div className="gemini-block"><span className="t-cap">切入角度</span><div className="t-body">{aiResult.angle}</div></div>}
+          {aiResult.advice && <div className="gemini-block"><span className="t-cap">结合阶段记录的建议</span><div className="t-body">{aiResult.advice}</div></div>}
           {aiResult.outline?.length ? <div className="gemini-block"><span className="t-cap">内容结构</span>{aiResult.outline.map((item, index) => <div key={`${index}-${item}`} className="gemini-outline"><b>{index + 1}</b>{item}</div>)}</div> : null}
           {aiResult.nextAction && <div className="gemini-next">下一步：{aiResult.nextAction}</div>}
           {aiResult.raw && <div className="t-body">{aiResult.raw}</div>}
         </div>
       )}
+      {(p.creativeKnowledge?.length || 0) > 0 && <div className="creative-knowledge"><div className="section-head"><span className="section-title">创作知识库</span><span className="t-cap">{p.creativeKnowledge!.length} 条沉淀</span></div>{p.creativeKnowledge!.slice(0, 8).map(k => <div key={k.id} className="knowledge-card"><div className="t-sub">{k.title}</div><div className="t-body">{k.content}</div></div>)}</div>}
     </div>
   )
 }

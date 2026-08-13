@@ -707,6 +707,17 @@ export const store = {
       }),
     })
   },
+  addContentStageRecord(projectId: string, contentId: string, kind: import('./types').ContentRecordKind, content: string) {
+    const data = read()
+    write({ ...data, projects: data.projects.map(p => {
+      if (p.id !== projectId || !p.content) return p
+      return { ...p, content: p.content.map(c => c.id === contentId ? { ...c, stageRecords: [...(c.stageRecords || []), { id: 'cr' + Date.now(), kind, content, createdAt: new Date().toISOString() }] } : c) }
+    }) })
+  },
+  addCreativeKnowledge(projectId: string, knowledge: Omit<import('./types').CreativeKnowledge, 'id' | 'createdAt'>) {
+    const data = read()
+    write({ ...data, projects: data.projects.map(p => p.id === projectId ? { ...p, creativeKnowledge: [{ ...knowledge, id: 'ck' + Date.now(), createdAt: new Date().toISOString() }, ...(p.creativeKnowledge || [])] } : p) })
+  },
   addContent(projectId: string, title: string, platform: any = '小红书', stage: any = 'idea') {
     const data = read()
     write({

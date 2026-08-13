@@ -123,6 +123,23 @@ export const CONTENT_STAGE_LABEL: Record<ContentStage, string> = {
   idea: '灵感', topic: '选题', script: '脚本', shoot: '待拍摄', edit: '剪辑中', publish: '待发布', published: '已发布',
 }
 
+export type ContentRecordKind = 'script' | 'blocker' | 'reference' | 'insight'
+export const CONTENT_RECORD_KIND_LABEL: Record<ContentRecordKind, string> = {
+  script: '口播 / 文案', blocker: '创作卡点', reference: '同行观察', insight: '阶段复盘',
+}
+export interface ContentStageRecord {
+  id: string
+  kind: ContentRecordKind
+  content: string
+  createdAt: string
+}
+export interface CreativeKnowledge {
+  id: string
+  title: string
+  content: string
+  sourceContentId: string
+  createdAt: string
+}
 export interface ContentItem {
   id: string
   title: string
@@ -132,6 +149,7 @@ export interface ContentItem {
   planDate?: string
   cover?: string
   nextAction?: string
+  stageRecords?: ContentStageRecord[]
 }
 
 export interface ClassSession {
@@ -165,6 +183,7 @@ export interface Project {
   updatedAt: string
   // 领域子内容
   content?: ContentItem[]
+  creativeKnowledge?: CreativeKnowledge[]
   health?: {
     goal: string
     stage: string
