@@ -1,4 +1,5 @@
-const MODEL = 'gemini-2.0-flash'
+// Gemini 2.0 Flash 已下线，使用当前稳定的 Gemini 2.5 Flash
+const MODEL = 'gemini-2.5-flash'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
