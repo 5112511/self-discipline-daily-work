@@ -1,4 +1,5 @@
-const MODEL = 'deepseek-v4-flash'
+// 使用 SenseNova 当前官方示例中的免费轻量模型
+const MODEL = 'sensenova-6.8-flash-lite'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
