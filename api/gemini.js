@@ -6,7 +6,7 @@ export default async function handler(req, res) {
     return
   }
 
-  // Vercel 中由用户配置为小写 deepseek，不会发送到浏览器
+  // Vercel 中由用户配置为小写 deepseek；此处应填 SenseNova TokenPlan 的 sk- 开头密钥
   const apiKey = process.env.deepseek
   if (!apiKey) {
     res.status(503).json({ error: '服务端尚未配置 deepseek 环境变量' })
@@ -29,7 +29,8 @@ export default async function handler(req, res) {
 请严格返回 JSON，不要 Markdown，不要额外解释，格式如下：
 {"titles":["标题1","标题2","标题3"],"angle":"一句话切入角度","outline":["开头钩子","核心内容","结尾行动"],"nextAction":"今天最值得执行的一步"}`
 
-    const response = await fetch('https://api.deepseek.com/chat/completions', {
+    // SenseNova TokenPlan 公测接口：OpenAI 兼容，但并非 DeepSeek 官方域名
+    const response = await fetch('https://token.sensenova.cn/v1/chat/completions', {
       method: 'POST',
       headers: {
         'Content-Type': 'application/json',
@@ -43,13 +44,12 @@ export default async function handler(req, res) {
         ],
         stream: false,
         temperature: 0.7,
-        response_format: { type: 'json_object' },
       }),
     })
 
     const payload = await response.json()
     if (!response.ok) {
-      res.status(response.status).json({ error: payload?.error?.message || 'DeepSeek 请求失败' })
+      res.status(response.status).json({ error: payload?.error?.message || 'SenseNova 请求失败' })
       return
     }
 
@@ -62,6 +62,6 @@ export default async function handler(req, res) {
     }
     res.status(200).json(result)
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'DeepSeek 服务异常' })
+    res.status(500).json({ error: error instanceof Error ? error.message : 'SenseNova 服务异常' })
   }
 }
