@@ -55,6 +55,7 @@ export interface Task {
   completedAt?: string
   overdue?: boolean
   deletedAt?: string  // 软删除时间戳（ISO），为空表示未删除
+  contentId?: string  // 内容流水线条目关联
 }
 
 export interface Inspiration {
@@ -149,6 +150,8 @@ export interface ContentItem {
   planDate?: string
   cover?: string
   nextAction?: string
+  taskId?: string
+  archivedAt?: string
   stageRecords?: ContentStageRecord[]
 }
 
@@ -230,6 +233,8 @@ export interface Schedule {
   repeatRule?: 'none' | 'daily' | 'weekly'
   projectId?: string
   taskId?: string
+  contact?: string
+  note?: string
   done: boolean
 }
 

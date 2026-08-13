@@ -33,8 +33,9 @@ export function TaskSheet({ open, task, onClose }: { open: boolean; task: Task |
       toast('已更新任务')
     } else {
       const projectId = form.projectId || data.projects.find(p => p.domain === form.domain)?.id
-      store.addTask({ ...form, projectId })
-      toast('已新建任务')
+      const created = store.addTask({ ...form, projectId })
+      if (form.domain === 'content') store.addContentFromTask(created.id)
+      toast(form.domain === 'content' ? '已加入内容流水线「灵感」' : '已新建任务')
     }
     onClose()
   }

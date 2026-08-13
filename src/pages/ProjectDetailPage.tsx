@@ -76,6 +76,11 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
   const [recordTarget, setRecordTarget] = useState<string | null>(null)
   const [recordKind, setRecordKind] = useState<ContentRecordKind>('script')
   const [recordText, setRecordText] = useState('')
+  const [selectedId, setSelectedId] = useState<string | null>(null)
+  const [showNew, setShowNew] = useState(false)
+  const [newContent, setNewContent] = useState({ title: '', note: '', dueDate: '', meetingContact: '' })
+  const activeContent = p.content?.find(c => c.id === selectedId)
+  const archivedContent = p.content?.filter(c => c.archivedAt) || []
 
   const askGemini = async (content: NonNullable<Project['content']>[number]) => {
     setAiLoading(true)
@@ -104,35 +109,36 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
   return (
     <div className="card card-pad">
       <div className="section-head"><span className="section-title">内容流水线</span>
-        <button className="chip chip-dark tap" onClick={() => {
-          const title = prompt('新内容标题')
-          if (title) { store.addContent(p.id, title); toast('已添加灵感') }
-        }}><IconPlus size={13} /> 新增</button>
+        <button className="chip chip-dark tap" onClick={() => setShowNew(true)}><IconPlus size={13} /> 新增</button>
       </div>
           <div className="content-pipeline">
         {CONTENT_STAGES.map(s => (
           <div key={s} className="pipe-col">
             <div className="pipe-head">{CONTENT_STAGE_LABEL[s]}</div>
             <div className="pipe-list">
-              {p.content?.filter(c => c.stage === s).map(c => (
-                <div key={c.id} className="pipe-card">
+              {p.content?.filter(c => c.stage === s && !c.archivedAt).map(c => (
+                <div key={c.id} className="pipe-card" onClick={() => setSelectedId(c.id)}>
                   <div className="pipe-platform">{c.platform}</div>
                   <div className="pipe-title">{c.title}</div>
                   {c.nextAction && <div className="t-cap">→ {c.nextAction}</div>}
-                  <button className="pipe-ai-btn tap" onClick={() => { setRecordTarget(recordTarget === c.id ? null : c.id); setRecordText('') }}>记录 {c.stageRecords?.length ? `(${c.stageRecords.length})` : ''}</button>
-                  <button className="pipe-ai-btn tap" onClick={() => askGemini(c)} disabled={aiLoading}>✦ {aiLoading && aiTarget === c.id ? '分析中' : 'AI建议'}</button>
+                  <button className="pipe-ai-btn tap" onClick={(e) => { e.stopPropagation(); setRecordTarget(recordTarget === c.id ? null : c.id); setRecordText('') }}>记录 {c.stageRecords?.length ? `(${c.stageRecords.length})` : ''}</button>
+                  <button className="pipe-ai-btn tap" onClick={(e) => { e.stopPropagation(); askGemini(c) }} disabled={aiLoading}>✦ {aiLoading && aiTarget === c.id ? '分析中' : 'AI建议'}</button>
                   {recordTarget === c.id && <div className="content-record-form"><select value={recordKind} onChange={e => setRecordKind(e.target.value as ContentRecordKind)} className="content-record-select">{(Object.keys(CONTENT_RECORD_KIND_LABEL) as ContentRecordKind[]).map(kind => <option key={kind} value={kind}>{CONTENT_RECORD_KIND_LABEL[kind]}</option>)}</select><textarea value={recordText} onChange={e => setRecordText(e.target.value)} placeholder="记录口播、创作卡点、同行观察或阶段复盘…" rows={3} /><button className="chip chip-dark tap" onClick={() => { if (!recordText.trim()) return toast('先写下一条记录'); store.addContentStageRecord(p.id, c.id, recordKind, recordText.trim()); setRecordText(''); toast('已写入阶段记录') }}>保存记录</button></div>}
                   <div className="pipe-acts">
-                    <button className="pipe-arrow tap" disabled={s === 'idea'} onClick={() => moveContent(c.id, -1)}>‹</button>
-                    <button className="pipe-arrow tap" disabled={s === 'published'} onClick={() => moveContent(c.id, 1)}>›</button>
+                    <button className="pipe-arrow tap" disabled={s === 'idea'} onClick={(e) => { e.stopPropagation(); moveContent(c.id, -1) }}>‹</button>
+                    <button className="pipe-arrow tap" disabled={s === 'published'} onClick={(e) => { e.stopPropagation(); moveContent(c.id, 1) }}>›</button>
+                    {s === 'published' && <button className="pipe-archive-btn tap" onClick={(e) => { e.stopPropagation(); store.archiveContent(p.id, c.id); toast('已完成入库，仅保留在今日已完成与创作档案中') }}>完成入库</button>}
                   </div>
                 </div>
               ))}
-              {p.content?.filter(c => c.stage === s).length === 0 && <div className="t-cap pipe-empty">—</div>}
+              {p.content?.filter(c => c.stage === s && !c.archivedAt).length === 0 && <div className="t-cap pipe-empty">—</div>}
             </div>
           </div>
         ))}
       </div>
+      {showNew && <div className="content-modal-mask" onClick={() => setShowNew(false)}><div className="content-modal" onClick={e => e.stopPropagation()}><div className="section-head"><span className="section-title">新增创作任务</span><button className="t-cap tap" onClick={() => setShowNew(false)}>关闭</button></div><label>标题 *</label><input value={newContent.title} onChange={e => setNewContent(v => ({ ...v, title: e.target.value }))} placeholder="本次创作的标题" /><label>备注详情</label><textarea value={newContent.note} onChange={e => setNewContent(v => ({ ...v, note: e.target.value }))} placeholder="创作背景、口播要点或准备事项" rows={4} /><div className="content-form-row"><div><label>DDL</label><input type="date" value={newContent.dueDate} onChange={e => setNewContent(v => ({ ...v, dueDate: e.target.value }))} /></div><div><label>对接人</label><input value={newContent.meetingContact} onChange={e => setNewContent(v => ({ ...v, meetingContact: e.target.value }))} placeholder="姓名 / 团队" /></div></div><div className="t-cap">填写 DDL 后会同步到日历；对接人与备注一并保留。</div><button className="chip chip-dark tap" onClick={() => { if (!newContent.title.trim()) return toast('请填写标题'); store.addContent(p.id, newContent.title.trim(), '小红书', 'idea', newContent); setNewContent({ title: '', note: '', dueDate: '', meetingContact: '' }); setShowNew(false); toast('已加入灵感，并创建对应任务') }}>创建并加入灵感</button></div></div>}
+      {activeContent && <div className="content-modal-mask" onClick={() => setSelectedId(null)}><div className="content-modal content-detail-modal" onClick={e => e.stopPropagation()}><div className="section-head"><div><span className="section-title">{activeContent.title}</span><div className="t-cap">{activeContent.platform} · {CONTENT_STAGE_LABEL[activeContent.stage]}</div></div><button className="t-cap tap" onClick={() => setSelectedId(null)}>关闭</button></div><div className="t-sub">创作记录</div>{activeContent.stageRecords?.length ? activeContent.stageRecords.map(r => <div className="detail-record" key={r.id}><div className="t-cap">{CONTENT_RECORD_KIND_LABEL[r.kind]} · {new Date(r.createdAt).toLocaleString('zh-CN')}</div><div className="t-body">{r.content}</div></div>) : <div className="t-cap">暂未添加阶段记录</div>}<div className="t-sub" style={{ marginTop: 16 }}>AI 沉淀知识</div>{p.creativeKnowledge?.filter(k => k.sourceContentId === activeContent.id).length ? p.creativeKnowledge.filter(k => k.sourceContentId === activeContent.id).map(k => <div key={k.id} className="knowledge-card"><div className="t-sub">{k.title}</div><div className="t-body">{k.content}</div></div>) : <div className="t-cap">尚未生成，点击该条目的「AI 建议」即可沉淀。</div>}</div></div>}
+      {archivedContent.length > 0 && <div className="creative-archive"><div className="section-head"><span className="section-title">已完成入库</span><span className="t-cap">{archivedContent.length} 条</span></div>{archivedContent.map(c => <button key={c.id} className="archive-row tap" onClick={() => setSelectedId(c.id)}><span>✓</span><span>{c.title}</span><span className="t-cap">查看创作详情 ›</span></button>)}</div>}
       {aiResult && (
         <div className="gemini-result">
           <div className="gemini-result-head"><span className="t-sub">Gemini 创作建议</span><button className="t-cap tap" onClick={() => setAiResult(null)}>关闭</button></div>
@@ -293,7 +299,7 @@ function WorkDetail({ p }: { p: Project }) {
 function ProjectTasks({ p, toast, onEditTask }: { p: Project; toast: (s: string) => void; onEditTask: (task: import('../types').Task) => void }) {
   const data = useStore()
   // 兼容旧任务：没有 projectId 但领域一致时，也归入当前项目
-  const tasks = data.tasks.filter(t => !t.deletedAt && (t.projectId === p.id || t.domain === p.domain))
+  const tasks = data.tasks.filter(t => !t.deletedAt && !t.contentId && (t.projectId === p.id || t.domain === p.domain))
   if (tasks.length === 0) return null
 
   const toggleStatus = (id: string, status: string) => {

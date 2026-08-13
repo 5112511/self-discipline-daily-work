@@ -199,8 +199,9 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
     if (ok) { store.updateTask(id, { inToday: false }); toast('已忽略') }
   }
   const addInspirationToTask = (content: string) => {
-    store.addTask({ title: content, domain: 'content', status: 'pending' })
-    toast('已转为任务')
+    const task = store.addTask({ title: content, domain: 'content', status: 'pending' })
+    store.addContentFromTask(task.id)
+    toast('已加入内容流水线「灵感」')
   }
   const analyzeProductivity = async (deep = false) => {
     setAiLoading(true)

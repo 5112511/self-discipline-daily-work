@@ -636,6 +636,7 @@ export const store = {
       const domain = ins.domain || 'content'
       const projectId = data.projects.find(p => p.domain === domain)?.id
       const task = this.addTask({ title: ins.content, domain, status: 'pending', projectId })
+      if (domain === 'content') this.addContentFromTask(task.id)
       const data2 = read()
       write({ ...data2, inspirations: data2.inspirations.map(i => i.id === id ? { ...i, archived: true, convertedTo: { type: 'task' as const, id: task.id } } : i), inboxCleared: data2.inboxCleared + 1 })
       return
@@ -651,6 +652,7 @@ export const store = {
     if (!ins) return
     const projectId = data.projects.find(p => p.domain === domain)?.id
     const task = this.addTask({ title: title || ins.content, domain, status: 'pending', projectId })
+    if (domain === 'content') this.addContentFromTask(task.id)
     const data2 = read()
     write({ ...data2, inspirations: data2.inspirations.map(i => i.id === id ? { ...i, archived: true, domain, convertedTo: { type: 'task', id: task.id } } : i) })
     return task
@@ -707,6 +709,26 @@ export const store = {
       }),
     })
   },
+  addContentFromTask(taskId: string) {
+    const data = read()
+    const task = data.tasks.find(t => t.id === taskId)
+    if (!task || task.domain !== 'content') return
+    const projectId = task.projectId || data.projects.find(p => p.domain === 'content')?.id
+    if (!projectId) return
+    const contentId = 'c' + Date.now()
+    const content = { id: contentId, title: task.title, platform: '小红书' as const, type: '图文', stage: 'idea' as const, nextAction: task.nextAction, taskId, stageRecords: task.note ? [{ id: 'cr' + Date.now(), kind: 'insight' as const, content: task.note, createdAt: new Date().toISOString() }] : [] }
+    write({ ...data, tasks: data.tasks.map(t => t.id === taskId ? { ...t, projectId, contentId } : t), projects: data.projects.map(p => p.id === projectId ? recomputeProjectProgress({ ...p, content: [...(p.content || []), content] }) : p) })
+    return contentId
+  },
+  archiveContent(projectId: string, contentId: string) {
+    const data = read()
+    const now = new Date().toISOString()
+    write({ ...data, projects: data.projects.map(p => {
+      if (p.id !== projectId || !p.content) return p
+      const content = p.content.map(c => c.id === contentId ? { ...c, archivedAt: now } : c)
+      return recomputeProjectProgress({ ...p, content })
+    }), tasks: data.tasks.map(t => t.contentId === contentId ? { ...t, status: 'done', progress: 100, inToday: true, completedAt: now.slice(0, 10) } : t) })
+  },
   addContentStageRecord(projectId: string, contentId: string, kind: import('./types').ContentRecordKind, content: string) {
     const data = read()
     write({ ...data, projects: data.projects.map(p => {
@@ -718,16 +740,18 @@ export const store = {
     const data = read()
     write({ ...data, projects: data.projects.map(p => p.id === projectId ? { ...p, creativeKnowledge: [{ ...knowledge, id: 'ck' + Date.now(), createdAt: new Date().toISOString() }, ...(p.creativeKnowledge || [])] } : p) })
   },
-  addContent(projectId: string, title: string, platform: any = '小红书', stage: any = 'idea') {
+  addContent(projectId: string, title: string, platform: any = '小红书', stage: any = 'idea', options: { note?: string; dueDate?: string; meetingContact?: string } = {}) {
     const data = read()
-    write({
-      ...data,
-      projects: data.projects.map(p => {
-        if (p.id !== projectId) return p
-        const content = [...(p.content || []), { id: 'c' + Date.now(), title, platform, type: '图文', stage }]
-        return recomputeProjectProgress({ ...p, content })
-      }),
-    })
+    const task = this.addTask({ title, note: options.note, domain: 'content', projectId, dueDate: options.dueDate, meetingContact: options.meetingContact, status: 'pending', nextAction: options.note })
+    const data2 = read()
+    const contentId = 'c' + Date.now()
+    write({ ...data2, tasks: data2.tasks.map(t => t.id === task.id ? { ...t, contentId } : t), projects: data2.projects.map(p => {
+      if (p.id !== projectId) return p
+      const content = [...(p.content || []), { id: contentId, title, platform, type: '图文', stage, nextAction: options.note, taskId: task.id, stageRecords: options.note ? [{ id: 'cr' + Date.now(), kind: 'insight' as const, content: options.note, createdAt: new Date().toISOString() }] : [] }]
+      return recomputeProjectProgress({ ...p, content })
+    }) })
+    if (options.dueDate) this.addSchedule({ title, domain: 'content', date: options.dueDate, start: '09:00', end: '09:30', projectId, taskId: task.id, contact: options.meetingContact, note: options.note, done: false })
+    return contentId
   },
   deleteContent(projectId: string, contentId: string) {
     const data = read()

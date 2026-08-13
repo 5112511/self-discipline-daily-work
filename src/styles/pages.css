@@ -126,6 +126,18 @@
 .knowledge-card { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
 .knowledge-card:last-child { border-bottom: none; }
 .knowledge-card .t-body { margin-top: 4px; font-size: 12px; line-height: 1.55; color: var(--ink-2); }
+.pipe-archive-btn { margin-top: 7px; padding: 4px 7px; border: 0; border-radius: 5px; background: var(--ink); color: #fff; font-size: 10px; }
+.content-modal-mask { position: fixed; z-index: 60; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(10, 15, 20, .38); }
+.content-modal { width: min(100%, 540px); max-height: 84vh; overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-card); box-shadow: 0 16px 44px rgba(0,0,0,.18); }
+.content-modal label { display: block; margin: 12px 0 5px; color: var(--ink-2); font-size: 12px; }
+.content-modal input, .content-modal textarea { box-sizing: border-box; width: 100%; border: 1px solid var(--line); border-radius: 7px; background: var(--bg-soft); color: var(--ink); padding: 9px; font: inherit; }
+.content-form-row { display: grid; grid-template-columns: 1fr 1fr; gap: 10px; }
+.content-modal > .chip { margin-top: 14px; }
+.detail-record { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
+.detail-record .t-body { margin-top: 4px; white-space: pre-wrap; line-height: 1.55; }
+.creative-archive { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
+.archive-row { display: flex; width: 100%; align-items: center; gap: 9px; padding: 10px 0; border: 0; border-bottom: 1px solid var(--line-2); background: transparent; color: var(--ink); text-align: left; }
+.archive-row span:nth-child(2) { flex: 1; }
 .gemini-result-head { display: flex; align-items: center; justify-content: space-between; gap: 8px; padding-bottom: 9px; border-bottom: 1px solid var(--line-2); }
 .gemini-block { margin-top: 11px; }
 .gemini-titles { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 6px; }
