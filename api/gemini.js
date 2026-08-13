@@ -1,5 +1,4 @@
-// 使用 Google AI Studio 确认可调用的 Gemini 3.1 Flash Lite 模型
-const MODEL = 'gemini-3.1-flash-lite'
+const MODEL = 'deepseek-v4-flash'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
@@ -7,9 +6,10 @@ export default async function handler(req, res) {
     return
   }
 
-  const apiKey = process.env.GEMINI_API_KEY
+  // Vercel 中由用户配置为小写 deepseek，不会发送到浏览器
+  const apiKey = process.env.deepseek
   if (!apiKey) {
-    res.status(503).json({ error: '服务端尚未配置 GEMINI_API_KEY' })
+    res.status(503).json({ error: '服务端尚未配置 deepseek 环境变量' })
     return
   }
 
@@ -29,19 +29,31 @@ export default async function handler(req, res) {
 请严格返回 JSON，不要 Markdown，不要额外解释，格式如下：
 {"titles":["标题1","标题2","标题3"],"angle":"一句话切入角度","outline":["开头钩子","核心内容","结尾行动"],"nextAction":"今天最值得执行的一步"}`
 
-    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${MODEL}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    const response = await fetch('https://api.deepseek.com/chat/completions', {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ contents: [{ parts: [{ text: prompt }] }], generationConfig: { temperature: 0.7, responseMimeType: 'application/json' } }),
+      headers: {
+        'Content-Type': 'application/json',
+        Authorization: `Bearer ${apiKey}`,
+      },
+      body: JSON.stringify({
+        model: MODEL,
+        messages: [
+          { role: 'system', content: '你是专业的中文内容创作顾问，必须按用户要求输出有效 JSON。' },
+          { role: 'user', content: prompt },
+        ],
+        stream: false,
+        temperature: 0.7,
+        response_format: { type: 'json_object' },
+      }),
     })
 
     const payload = await response.json()
     if (!response.ok) {
-      res.status(response.status).json({ error: payload?.error?.message || 'Gemini 请求失败' })
+      res.status(response.status).json({ error: payload?.error?.message || 'DeepSeek 请求失败' })
       return
     }
 
-    const text = payload?.candidates?.[0]?.content?.parts?.[0]?.text || ''
+    const text = payload?.choices?.[0]?.message?.content || ''
     let result
     try {
       result = JSON.parse(text.replace(/^```json\s*|\s*```$/g, '').trim())
@@ -50,6 +62,6 @@ export default async function handler(req, res) {
     }
     res.status(200).json(result)
   } catch (error) {
-    res.status(500).json({ error: error instanceof Error ? error.message : 'Gemini 服务异常' })
+    res.status(500).json({ error: error instanceof Error ? error.message : 'DeepSeek 服务异常' })
   }
 }
