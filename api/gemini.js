@@ -7,10 +7,10 @@ export default async function handler(req, res) {
     return
   }
 
-  // Vercel 中由用户配置为小写 deepseek；此处应填 SenseNova TokenPlan 的 sk- 开头密钥
-  const apiKey = process.env.deepseek
+  // Vercel 中使用用户创建的变量名；连字符变量必须用方括号读取
+  const apiKey = process.env['apikey-202608130840']
   if (!apiKey) {
-    res.status(503).json({ error: '服务端尚未配置 deepseek 环境变量' })
+    res.status(503).json({ error: '服务端尚未配置 apikey-202608130840 环境变量' })
     return
   }
 
