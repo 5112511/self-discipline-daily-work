@@ -7,10 +7,10 @@ export default async function handler(req, res) {
     return
   }
 
-  // Vercel 中使用用户创建的变量名；连字符变量必须用方括号读取
-  const apiKey = process.env['apikey-202608130840']
+  // Vercel 中使用用户创建的环境变量，不会发送到浏览器
+  const apiKey = process.env.apikey_202608130840
   if (!apiKey) {
-    res.status(503).json({ error: '服务端尚未配置 apikey-202608130840 环境变量' })
+    res.status(503).json({ error: '服务端尚未配置 apikey_202608130840 环境变量' })
     return
   }
 
