@@ -1,4 +1,4 @@
-import React from 'react'
+import React, { useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
 import { DOMAIN_LABEL, DOMAIN_ICON, CONTENT_STAGE_LABEL, type Project, type ContentStage } from '../types'
@@ -70,6 +70,30 @@ export function ProjectDetailPage({ projectId, onBack, onEditTask }: { projectId
 }
 
 function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id: string, dir: 1 | -1) => void; toast: (s: string) => void }) {
+  const [aiLoading, setAiLoading] = useState(false)
+  const [aiTarget, setAiTarget] = useState<string | null>(null)
+  const [aiResult, setAiResult] = useState<{ titles?: string[]; angle?: string; outline?: string[]; nextAction?: string; raw?: string } | null>(null)
+
+  const askGemini = async (content: NonNullable<Project['content']>[number]) => {
+    setAiLoading(true)
+    setAiTarget(content.id)
+    setAiResult(null)
+    try {
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ title: content.title, platform: content.platform, stage: CONTENT_STAGE_LABEL[content.stage], nextAction: content.nextAction }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'Gemini 请求失败')
+      setAiResult(result)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'Gemini 暂时不可用')
+    } finally {
+      setAiLoading(false)
+    }
+  }
+
   return (
     <div className="card card-pad">
       <div className="section-head"><span className="section-title">内容流水线</span>
@@ -88,6 +112,7 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
                   <div className="pipe-platform">{c.platform}</div>
                   <div className="pipe-title">{c.title}</div>
                   {c.nextAction && <div className="t-cap">→ {c.nextAction}</div>}
+                  <button className="pipe-ai-btn tap" onClick={() => askGemini(c)} disabled={aiLoading}>✦ {aiLoading && aiTarget === c.id ? '分析中' : 'AI建议'}</button>
                   <div className="pipe-acts">
                     <button className="pipe-arrow tap" disabled={s === 'idea'} onClick={() => moveContent(c.id, -1)}>‹</button>
                     <button className="pipe-arrow tap" disabled={s === 'published'} onClick={() => moveContent(c.id, 1)}>›</button>
@@ -99,6 +124,16 @@ function ContentDetail({ p, moveContent, toast }: { p: Project; moveContent: (id
           </div>
         ))}
       </div>
+      {aiResult && (
+        <div className="gemini-result">
+          <div className="gemini-result-head"><span className="t-sub">Gemini 创作建议</span><button className="t-cap tap" onClick={() => setAiResult(null)}>关闭</button></div>
+          {aiResult.titles?.length ? <div className="gemini-block"><span className="t-cap">推荐标题</span><div className="gemini-titles">{aiResult.titles.map(title => <span key={title} className="chip">{title}</span>)}</div></div> : null}
+          {aiResult.angle && <div className="gemini-block"><span className="t-cap">切入角度</span><div className="t-body">{aiResult.angle}</div></div>}
+          {aiResult.outline?.length ? <div className="gemini-block"><span className="t-cap">内容结构</span>{aiResult.outline.map((item, index) => <div key={`${index}-${item}`} className="gemini-outline"><b>{index + 1}</b>{item}</div>)}</div> : null}
+          {aiResult.nextAction && <div className="gemini-next">下一步：{aiResult.nextAction}</div>}
+          {aiResult.raw && <div className="t-body">{aiResult.raw}</div>}
+        </div>
+      )}
     </div>
   )
 }
