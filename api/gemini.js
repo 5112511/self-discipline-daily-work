@@ -1,5 +1,5 @@
-// 使用轻量模型，适配新项目的免费额度与访问权限
-const MODEL = 'gemini-2.5-flash-lite'
+// 使用用户确认的 Gemini 3.6 Flash 模型
+const MODEL = 'gemini-3.6-flash'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
