@@ -164,6 +164,9 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
   const confirm = useConfirm()
   const now = '14:30'
   const [showDone, setShowDone] = useState(true)
+  const [aiBrief, setAiBrief] = useState<{ summary?: string; focus?: string; risks?: string[]; steps?: string[]; efficiency?: string; raw?: string } | null>(null)
+  const [aiLoading, setAiLoading] = useState(false)
+  const [showDeepAnalysis, setShowDeepAnalysis] = useState(false)
 
   // 从 store 数据派生首页各模块（统一过滤已软删除）
   const allTasks = data.tasks.filter(t => !t.deletedAt)
@@ -199,6 +202,35 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
     store.addTask({ title: content, domain: 'content', status: 'pending' })
     toast('已转为任务')
   }
+  const analyzeProductivity = async (deep = false) => {
+    setAiLoading(true)
+    try {
+      const snapshot = {
+        todayProgress,
+        completedCount: doneTasks.length,
+        activeCount: allTasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length,
+        overdueCount: overdueTasks.length,
+        reminderCount: reminders.length,
+        top3: top3.map(t => ({ title: t.title, progress: t.progress, estimatedMinutes: t.estimatedMinutes, nextAction: t.nextAction, status: t.status })),
+        completedToday: doneTasks.slice(0, 8).map(t => ({ title: t.title, estimatedMinutes: t.estimatedMinutes, domain: DOMAIN_LABEL[t.domain] })),
+        plannedMinutes: top3.reduce((sum, t) => sum + (t.estimatedMinutes || 0), 0),
+        scheduledMinutes: todayTimeline.reduce((sum, s) => {
+          const [sh, sm] = s.start.split(':').map(Number); const [eh, em] = s.end.split(':').map(Number)
+          return sum + Math.max(0, eh * 60 + em - sh * 60 - sm)
+        }, 0),
+        deep,
+      }
+      const response = await fetch('/api/gemini', { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'productivity', snapshot }) })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'AI 分析失败')
+      setAiBrief(result)
+      if (deep) setShowDeepAnalysis(true)
+    } catch (error) {
+      toast(error instanceof Error ? error.message : 'AI 分析暂不可用')
+    } finally {
+      setAiLoading(false)
+    }
+  }
 
   return (
     <div className="page today-page">
@@ -223,29 +255,35 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
         <div className="brief-head">
           <span className="icn-box dark" style={{ width: 26, height: 26 }}><IconBolt size={14} /></span>
           <span className="t-h3">AI 今日简报</span>
-          <span className="chip line" style={{ marginLeft: 'auto' }}>规则简报</span>
+          <button className="chip line tap" style={{ marginLeft: 'auto' }} onClick={() => analyzeProductivity()} disabled={aiLoading}>{aiLoading ? '分析中' : aiBrief ? '更新简报' : '生成简报'}</button>
         </div>
         <div className="brief-block">
           <div className="brief-label">今天的重点</div>
-          <div className="brief-text">{top3.length > 0 ? top3.map(t => t.title).join('、') : '今日还没有安排 Top 3，先加入最重要的事。'}</div>
+          <div className="brief-text">{aiBrief?.summary || (top3.length > 0 ? top3.map(t => t.title).join('、') : '今日还没有安排 Top 3，先加入最重要的事。')}</div>
         </div>
         <div className="brief-block">
           <div className="brief-label">需要注意</div>
           <div className="brief-text">
-            {overdueTasks.length > 0 && `有 ${overdueTasks.length} 项逾期未完成；`}
-            {reminders.length > 0 && `${reminders.length} 项待处理提醒待整理；`}
-            {!overdueTasks.length && !reminders.length && '当前一切就绪，无逾期与积压。'}
+            {aiBrief?.risks?.length ? aiBrief.risks.join('；') : <>{overdueTasks.length > 0 && `有 ${overdueTasks.length} 项逾期未完成；`}{reminders.length > 0 && `${reminders.length} 项待处理提醒待整理；`}{!overdueTasks.length && !reminders.length && '当前一切就绪，无逾期与积压。'}</>} 
           </div>
         </div>
         <div className="brief-block">
           <div className="brief-label">建议下一步</div>
-          <div className="brief-text">{top3[0] ? `先用 ${top3[0].estimatedMinutes || 30} 分钟完成「${top3[0].nextAction || top3[0].title}」` : '从收集箱挑一件最重要的事加入 Top 3。'}</div>
+          <div className="brief-text">{aiBrief?.focus || (top3[0] ? `先用 ${top3[0].estimatedMinutes || 30} 分钟完成「${top3[0].nextAction || top3[0].title}」` : '从收集箱挑一件最重要的事加入 Top 3。')}</div>
         </div>
         <div className="brief-foot">
-          <span className="t-cap">基于今日任务、逾期项与截止日期生成</span>
-          <button className="tap chip line" style={{ opacity: .5 }} onClick={() => toast('AI 深度分析暂不可用')}>AI 深度分析</button>
+          <span className="t-cap">基于任务、进度、日程与完成情况</span>
+          <button className="tap chip line" onClick={() => analyzeProductivity(true)} disabled={aiLoading}>AI 深度分析</button>
         </div>
       </div>
+      {showDeepAnalysis && aiBrief && (
+        <div className="card card-pad ai-deep-analysis">
+          <div className="section-head"><span className="section-title">AI 深度分析</span><button className="t-cap tap" onClick={() => setShowDeepAnalysis(false)}>收起</button></div>
+          {aiBrief.efficiency && <div className="ai-analysis-summary">效率观察：{aiBrief.efficiency}</div>}
+          {aiBrief.steps?.length ? <><div className="t-sub" style={{ marginTop: 12 }}>接下来这样做</div><div className="ai-analysis-steps">{aiBrief.steps.map((step, index) => <div key={`${index}-${step}`} className="ai-analysis-step"><b>{index + 1}</b><span>{step}</span></div>)}</div></> : null}
+          {aiBrief.raw && <div className="t-body" style={{ marginTop: 10 }}>{aiBrief.raw}</div>}
+        </div>
+      )}
 
       {/* 3. Top 3 */}
       <div className="section">
