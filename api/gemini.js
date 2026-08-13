@@ -1,5 +1,5 @@
-// 使用用户确认的 Gemini 3.6 Flash 模型
-const MODEL = 'gemini-3.6-flash'
+// 使用 Google AI Studio 确认可调用的 Gemini 3.1 Flash Lite 模型
+const MODEL = 'gemini-3.1-flash-lite'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') {
