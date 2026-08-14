@@ -1,4 +1,4 @@
-import React, { useState } from 'react'
+import React, { useRef, useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
 import { DOMAIN_LABEL, DOMAIN_ICON, CONTENT_STAGE_LABEL, CONTENT_RECORD_KIND_LABEL, type Project, type ContentStage, type ContentRecordKind } from '../types'
@@ -21,6 +21,9 @@ export function ProjectDetailPage({ projectId, onBack, onEditTask }: { projectId
     )
   }
   const c = domainColor(p.domain)
+  const swipeStart = useRef<{ x: number; y: number } | null>(null)
+  const onTouchStart = (e: React.TouchEvent) => { swipeStart.current = { x: e.touches[0].clientX, y: e.touches[0].clientY } }
+  const onTouchEnd = (e: React.TouchEvent) => { const start = swipeStart.current; swipeStart.current = null; if (start && e.changedTouches[0].clientX - start.x > 88 && Math.abs(e.changedTouches[0].clientY - start.y) < 55) onBack() }
 
   const moveContent = (contentId: string, dir: 1 | -1) => {
     const ct = p.content?.find(x => x.id === contentId)
@@ -33,7 +36,7 @@ export function ProjectDetailPage({ projectId, onBack, onEditTask }: { projectId
   }
 
   return (
-    <div className="page ledger-page">
+    <div className="page ledger-page" onTouchStart={onTouchStart} onTouchEnd={onTouchEnd}>
       <div className="page-head">
         <button className="t-sub tap" onClick={onBack}>‹ 返回</button>
         <span className="page-head-title">{p.name}</span>

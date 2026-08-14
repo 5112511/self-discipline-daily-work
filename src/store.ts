@@ -296,8 +296,9 @@ function read(): AppData {
           trendingTopics: parsed.trendingTopics ?? pickTrending(8),
           trendingSource: parsed.trendingSource ?? defaultTrendingSource(),
         }
-        cache = merged
-        write(merged)
+        const normalized = { ...merged, projects: merged.projects.map(recomputeProjectProgress) }
+        cache = normalized
+        write(normalized)
         return cache
       }
     }
@@ -321,24 +322,29 @@ function write(data: AppData) {
 function recomputeProjectProgress(p: Project): Project {
   let progress = p.progress
   if (p.domain === 'content' && p.content) {
-    const stages = ['idea', 'topic', 'script', 'shoot', 'edit', 'publish', 'published']
-    const total = p.content.length
-    progress = total ? Math.round(p.content.reduce((sum, c) => sum + stages.indexOf(c.stage), 0) / (total * (stages.length - 1)) * 100) : 0
+    // 内容标准：灵感 5% → 选题 18% → 脚本 35% → 拍摄 55% → 剪辑 75% → 待发布 90% → 发布 95%，完成入库 100%
+    const scores: Record<string, number> = { idea: 5, topic: 18, script: 35, shoot: 55, edit: 75, publish: 90, published: 95 }
+    progress = p.content.length ? Math.round(p.content.reduce((sum, c) => sum + (c.archivedAt ? 100 : scores[c.stage]), 0) / p.content.length) : 0
   } else if (p.domain === 'ai' && p.ai?.learning) {
     const list = p.ai.learning
-    progress = list.length ? Math.round(list.reduce((s, l) => s + (l.progress || 0), 0) / list.length) : 0
-  } else if (p.domain === 'health' && p.health?.investorSteps) {
-    const steps = p.health.investorSteps
-    const done = steps.filter(s => s.done).length
-    progress = steps.length ? Math.round((done / steps.length) * 100) : 0
-  } else if (p.domain === 'class' && p.classes?.sessions) {
-    const sessions = p.classes.sessions
-    const ready = sessions.filter(s => s.prepareStatus === 'ready').length
-    progress = sessions.length ? Math.round((ready / sessions.length) * 100) : 0
+    progress = list.length ? Math.round(list.reduce((s, l) => s + l.progress, 0) / list.length) : 0
+  } else if (p.domain === 'health' && p.health) {
+    const steps = p.health.investorSteps || [], milestones = p.health.milestones || []
+    const stepRate = steps.length ? steps.filter(s => s.done).length / steps.length : 0
+    const milestoneRate = milestones.length ? milestones.filter(m => m.status === 'done').length / milestones.length : stepRate
+    progress = Math.round((stepRate * 0.6 + milestoneRate * 0.4) * 100)
+  } else if (p.domain === 'class' && p.classes) {
+    const sessions = p.classes.sessions || []
+    const prepared = sessions.length ? sessions.filter(s => s.prepareStatus === 'ready').length / sessions.length : 0
+    const photoTotal = p.classes.photosUntreated + p.classes.photosUnsent
+    const archiveRate = photoTotal ? Math.max(0, 1 - photoTotal / Math.max(sessions.length * 2, 1)) : 1
+    progress = Math.round((prepared * 0.7 + archiveRate * 0.3) * 100)
+  } else if (p.domain === 'work' && p.work?.meetings) {
+    const meetings = p.work.meetings
+    progress = meetings.length ? Math.round(meetings.reduce((sum, m) => sum + (m.status === 'done' ? 100 : m.status === 'planned' ? 50 : 0), 0) / meetings.length) : 0
   } else if (p.domain === 'life' && p.life?.items) {
     const items = p.life.items
-    const done = items.filter(i => i.status === 'done').length
-    progress = items.length ? Math.round((done / items.length) * 100) : 0
+    progress = items.length ? Math.round(items.filter(i => i.status === 'done').length / items.length * 100) : 0
   }
   return progress === p.progress ? p : { ...p, progress }
 }

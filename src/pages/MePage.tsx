@@ -46,34 +46,17 @@ function Sparkline({ data }: { data: number[] }) {
   )
 }
 
-function Heatmap({ data }: { data: number[] }) {
+function Heatmap({ doneDates }: { doneDates: Set<string> }) {
   const [view, setView] = useState<'month' | 'year'>('month')
   const now = new Date()
   const [year, setYear] = useState(now.getFullYear())
   const [month, setMonth] = useState(now.getMonth())
 
-  // 把 data（从 N 天前到今天，末尾=今天）转成「日期 -> 是否完成」map
-  const doneMap: Record<string, boolean> = {}
-  if (data && data.length > 0) {
-    const today = new Date()
-    today.setHours(0, 0, 0, 0)
-    const start = new Date(today)
-    start.setDate(start.getDate() - (data.length - 1))
-    const cur = new Date(start)
-    let i = 0
-    while (cur <= today) {
-      doneMap[toYmd(cur)] = !!data[i]
-      cur.setDate(cur.getDate() + 1)
-      i++
-    }
-  }
   const today = todayYmd()
 
   const prevMonth = () => { if (month === 0) { setMonth(11); setYear(year - 1) } else setMonth(month - 1) }
   const nextMonth = () => { if (month === 11) { setMonth(0); setYear(year + 1) } else setMonth(month + 1) }
   const goToday = () => { setYear(now.getFullYear()); setMonth(now.getMonth()) }
-
-  if (data.length === 0) return <div className="t-cap">暂无数据</div>
 
   // 月视图
   if (view === 'month') {
@@ -95,7 +78,7 @@ function Heatmap({ data }: { data: number[] }) {
           {weeks.map((w, wi) => (
             <div key={wi} className="cal-week">
               {w.map(c => {
-                const done = doneMap[c.ymd]
+                const done = doneDates.has(c.ymd)
                 const future = c.ymd > today
                 return (
                   <div key={c.ymd} className={'cal-day' + (c.inMonth ? '' : ' out') + (done ? ' on' : '') + (c.ymd === today ? ' today' : '') + (future ? ' future' : '')} title={`${c.date.getMonth()+1}月${c.day}日${done ? ' · 已完成' : ''}`}>
@@ -117,7 +100,7 @@ function Heatmap({ data }: { data: number[] }) {
     for (const row of w) for (const c of row) {
       if (c.date.getFullYear() === year) {
         total++
-        if (doneMap[c.ymd]) cnt++
+        if (doneDates.has(c.ymd)) cnt++
       }
     }
     return { cnt, total }
@@ -144,7 +127,7 @@ function Heatmap({ data }: { data: number[] }) {
                 {weeks.map((w, wi) => (
                   <div key={wi} className="year-week">
                     {w.map(c => (
-                      <div key={c.ymd} className={'year-cell' + (doneMap[c.ymd] ? ' on' : '') + (c.ymd === today ? ' today' : '')} />
+                      <div key={c.ymd} className={'year-cell' + (doneDates.has(c.ymd) ? ' on' : '') + (c.ymd === today ? ' today' : '')} />
                     ))}
                   </div>
                 ))}
@@ -171,7 +154,8 @@ export function MePage({ auth, onExitOffline }: { auth?: { user: { id: string; e
   const top3Done = tasks.filter(t => t.inTop3 && t.status === 'done').length
   const top3Total = tasks.filter(t => t.inTop3).length
   const top3Rate = top3Total > 0 ? Math.round((top3Done / top3Total) * 100) : 0
-  const focusMin = tasks.reduce((a, t) => a + (t.status === 'done' ? (t.estimatedMinutes || 0) : 0), 0)
+  const focusMin = data.focusSessions.filter(s => !s.cancelled).reduce((a, s) => a + s.actualMin, 0)
+  const doneDates = new Set(tasks.filter(t => t.status === 'done' && t.completedAt).map(t => t.completedAt!).concat(data.focusSessions.filter(s => !s.cancelled && s.actualMin > 0).map(s => s.date)))
 
   const max = Math.max(...data.weekDist.map(x => x.minutes), 1)
 
@@ -285,7 +269,7 @@ export function MePage({ auth, onExitOffline }: { auth?: { user: { id: string; e
       <div className="section">
         <div className="section-head"><span className="section-title">连续完成热力图</span><span className="section-action">近 3 个月</span></div>
         <div className="card card-pad">
-          <Heatmap data={data.heatmap} />
+          <Heatmap doneDates={doneDates} />
           <div className="heat-legend">
             <span className="t-cap">少</span>
             <div className="heat-cell on" style={{ opacity: .4 }} />

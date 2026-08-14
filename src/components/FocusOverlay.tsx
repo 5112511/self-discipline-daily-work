@@ -28,61 +28,45 @@ function minToHm(min: number): string {
 }
 
 type TimerState = 'idle' | 'running' | 'paused' | 'done'
+type TimerMode = 'countdown' | 'countup'
+const ACTIVE_FOCUS_KEY = 'personal-os-active-focus-v1'
 
-// 专注计时器 Hook
-function useFocusTimer(plannedMin: number, onComplete?: () => void) {
+// 以真实时间戳计算，切到后台或关闭专注页后重新打开仍可恢复。
+function useFocusTimer(plannedMin: number, mode: TimerMode, onComplete?: () => void) {
   const [state, setState] = useState<TimerState>('idle')
+  const [elapsed, setElapsed] = useState(0)
   const [remaining, setRemaining] = useState(plannedMin * 60)
-  const [elapsed, setElapsed] = useState(0) // 实际已专注秒数（排除暂停）
-  const startRef = useRef<number>(0)        // 本次 running 段开始的 timestamp
-  const accRef = useRef<number>(0)          // 累计已专注秒数（排除暂停）
-  const timerRef = useRef<number | null>(null)
+  const startRef = useRef(0), accRef = useRef(0), timerRef = useRef<number | null>(null)
   const onCompleteRef = useRef(onComplete)
   onCompleteRef.current = onComplete
-
-  useEffect(() => { setRemaining(plannedMin * 60); setState('idle'); accRef.current = 0; setElapsed(0) }, [plannedMin])
-
+  const save = (nextState: TimerState, start = startRef.current, acc = accRef.current) => localStorage.setItem(ACTIVE_FOCUS_KEY, JSON.stringify({ state: nextState, start, acc, plannedMin, mode }))
+  const clearTimer = () => { if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null } }
   const tick = useCallback(() => {
-    const now = Date.now()
-    const total = accRef.current + Math.floor((now - startRef.current) / 1000)
+    const total = accRef.current + Math.floor((Date.now() - startRef.current) / 1000)
     setElapsed(total)
-    const rem = plannedMin * 60 - total
-    if (rem <= 0) {
-      setRemaining(0)
-      setState('done')
-      if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-      onCompleteRef.current?.()
-      return
+    if (mode === 'countdown') {
+      const rem = plannedMin * 60 - total
+      if (rem <= 0) { setRemaining(0); setState('done'); clearTimer(); localStorage.removeItem(ACTIVE_FOCUS_KEY); onCompleteRef.current?.(); return }
+      setRemaining(rem)
     }
-    setRemaining(rem)
-  }, [plannedMin])
-
+    save('running')
+  }, [plannedMin, mode])
   const start = useCallback(() => {
     if (state === 'running') return
-    startRef.current = Date.now()
-    setState('running')
-    if (timerRef.current) clearInterval(timerRef.current)
-    timerRef.current = window.setInterval(tick, 1000)
+    startRef.current = Date.now(); setState('running'); save('running'); clearTimer(); timerRef.current = window.setInterval(tick, 1000); tick()
   }, [state, tick])
-
   const pause = useCallback(() => {
     if (state !== 'running') return
-    accRef.current += Math.floor((Date.now() - startRef.current) / 1000)
-    setElapsed(accRef.current)
-    setState('paused')
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-  }, [state])
-
-  const reset = useCallback(() => {
-    if (timerRef.current) { clearInterval(timerRef.current); timerRef.current = null }
-    accRef.current = 0
-    setElapsed(0)
-    setRemaining(plannedMin * 60)
-    setState('idle')
-  }, [plannedMin])
-
-  useEffect(() => () => { if (timerRef.current) clearInterval(timerRef.current) }, [])
-
+    accRef.current += Math.floor((Date.now() - startRef.current) / 1000); setElapsed(accRef.current); setState('paused'); clearTimer(); save('paused', 0, accRef.current)
+  }, [state, plannedMin, mode])
+  const reset = useCallback(() => { clearTimer(); accRef.current = 0; setElapsed(0); setRemaining(plannedMin * 60); setState('idle'); localStorage.removeItem(ACTIVE_FOCUS_KEY) }, [plannedMin])
+  useEffect(() => {
+    const saved = localStorage.getItem(ACTIVE_FOCUS_KEY)
+    if (!saved) return
+    try { const v = JSON.parse(saved); if (v.mode === mode && v.plannedMin === plannedMin && v.state !== 'done') { accRef.current = v.acc || 0; startRef.current = v.start || 0; const total = v.state === 'running' ? accRef.current + Math.floor((Date.now() - startRef.current) / 1000) : accRef.current; setElapsed(total); setRemaining(Math.max(0, plannedMin * 60 - total)); setState(v.state); if (v.state === 'running') { timerRef.current = window.setInterval(tick, 1000); tick() } } } catch { localStorage.removeItem(ACTIVE_FOCUS_KEY) }
+    return () => clearTimer()
+  }, [])
+  useEffect(() => { if (state === 'idle') { setElapsed(0); setRemaining(plannedMin * 60) } }, [plannedMin, mode])
   return { state, remaining, elapsed, start, pause, reset }
 }
 
@@ -115,10 +99,14 @@ export function FocusOverlay({ open, onClose, presetTaskId }: { open: boolean; o
   const settings = data.focusSettings
 
   // 计时配置
-  const [plannedMin, setPlannedMin] = useState(settings.pomodoroMin)
-  const [title, setTitle] = useState('')
-  const [domain, setDomain] = useState<Domain>('content')
-  const [taskId, setTaskId] = useState<string | undefined>(presetTaskId)
+  const savedActive = (() => { try { return JSON.parse(localStorage.getItem(ACTIVE_FOCUS_KEY) || 'null') } catch { return null } })()
+  const savedMeta = (() => { try { return JSON.parse(localStorage.getItem('personal-os-active-focus-meta-v1') || 'null') } catch { return null } })()
+  const [plannedMin, setPlannedMin] = useState(savedActive?.plannedMin || settings.pomodoroMin)
+  const [customMin, setCustomMin] = useState(String(savedActive?.plannedMin || settings.pomodoroMin))
+  const [timerMode, setTimerMode] = useState<TimerMode>(savedActive?.mode || 'countdown')
+  const [title, setTitle] = useState(savedMeta?.title || '')
+  const [domain, setDomain] = useState<Domain>(savedMeta?.domain || 'content')
+  const [taskId, setTaskId] = useState<string | undefined>(savedMeta?.taskId || presetTaskId)
 
 // 任务建议：doing/pending 的任务
 const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing' || t.status === 'pending')).slice(0, 8)
@@ -153,17 +141,19 @@ const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing'
       actualMin: plannedMin,
       completed: true,
     })
-    toast('番茄完成 ✓ 已记录')
+    localStorage.removeItem('personal-os-active-focus-meta-v1')
+    toast(timerMode === 'countdown' ? '番茄完成 ✓ 已记录' : '专注已记录')
     if (settings.notification && 'Notification' in window && Notification.permission === 'granted') {
       new Notification('番茄完成', { body: `${title || '专注'} · ${plannedMin} 分钟` })
     }
-  }, [title, domain, taskId, plannedMin, settings.notification, toast])
+  }, [title, domain, taskId, plannedMin, timerMode, settings.notification, toast])
 
-  const timer = useFocusTimer(plannedMin, onComplete)
+  const timer = useFocusTimer(plannedMin, timerMode, onComplete)
 
   const handleStart = () => {
     const now = new Date()
     startClockRef.current = minToHm(now.getHours() * 60 + now.getMinutes())
+    localStorage.setItem('personal-os-active-focus-meta-v1', JSON.stringify({ title, domain, taskId, start: startClockRef.current }))
     timer.start()
   }
 
@@ -182,11 +172,13 @@ const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing'
       completed: false,
     })
     toast(`已停止并记录 ${actualMin} 分钟`)
+    localStorage.removeItem('personal-os-active-focus-meta-v1')
     timer.reset()
   }
 
   // 取消（不记录）
   const handleCancel = () => {
+    localStorage.removeItem('personal-os-active-focus-meta-v1')
     timer.reset()
     toast('已取消，未记录')
   }
@@ -259,7 +251,7 @@ const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing'
 
   if (!open) return null
 
-  const progress = plannedMin > 0 ? (1 - timer.remaining / (plannedMin * 60)) : 0
+  const progress = timerMode === 'countdown' && plannedMin > 0 ? (1 - timer.remaining / (plannedMin * 60)) : Math.min(timer.elapsed / Math.max(plannedMin * 60, 1), 1)
   const R = 120, C = 2 * Math.PI * R
 
   return (
@@ -281,18 +273,20 @@ const suggestions = data.tasks.filter(t => !t.deletedAt && (t.status === 'doing'
                 transform="rotate(-90 130 130)" style={{ transition: 'stroke-dashoffset 1s linear' }} />
             </svg>
             <div className="focus-ring-center">
-              <span className="focus-clock mono">{fmtClock(timer.remaining)}</span>
+              <span className="focus-clock mono">{fmtClock(timerMode === 'countup' ? timer.elapsed : timer.remaining)}</span>
               <span className="t-cap">{timer.state === 'running' ? '专注中' : timer.state === 'paused' ? '已暂停' : timer.state === 'done' ? '已完成' : '待开始'}</span>
             </div>
           </div>
 
-          {/* 时长预设 */}
+          {/* 计时方式与时长 */}
           <div className="focus-presets">
-            {[15, 25, 50].map(m => (
-              <button key={m} className={'chip ' + (plannedMin === m ? 'chip-dark' : 'line') + ' tap'} onClick={() => { if (timer.state === 'idle' || timer.state === 'done') setPlannedMin(m) }}>{m}min</button>
+            <button className={'chip ' + (timerMode === 'countdown' ? 'chip-dark' : 'line') + ' tap'} disabled={timer.state === 'running' || timer.state === 'paused'} onClick={() => setTimerMode('countdown')}>倒计时</button>
+            <button className={'chip ' + (timerMode === 'countup' ? 'chip-dark' : 'line') + ' tap'} disabled={timer.state === 'running' || timer.state === 'paused'} onClick={() => setTimerMode('countup')}>正向计时</button>
+            {timerMode === 'countdown' && [15, 25, 50].map(m => (
+              <button key={m} className={'chip ' + (plannedMin === m ? 'chip-dark' : 'line') + ' tap'} onClick={() => { if (timer.state === 'idle' || timer.state === 'done') { setPlannedMin(m); setCustomMin(String(m)) } }}>{m}min</button>
             ))}
-            <input className="tf-input mono focus-custom-min" type="number" min="1" max="120" value={plannedMin}
-              onChange={(e) => { if (timer.state === 'idle' || timer.state === 'done') setPlannedMin(Math.max(1, Math.min(120, Number(e.target.value) || 25))) }} />
+            {timerMode === 'countdown' && <input className="tf-input mono focus-custom-min" type="number" min="1" max="480" value={customMin} placeholder="分钟"
+              onChange={(e) => { const v = e.target.value; setCustomMin(v); const min = Number(v); if ((timer.state === 'idle' || timer.state === 'done') && Number.isFinite(min) && min >= 1 && min <= 480) setPlannedMin(min) }} />}
           </div>
 
           {/* 控制按钮 */}
