@@ -182,20 +182,26 @@ function structuredCloneSafe<T>(obj: T): T {
 function defaultLedger(today: string): Ledger {
   return {
     accounts: [
-      { id: 'a1', name: '现金', kind: 'cash', balance: 1280, updatedAt: today },
-      { id: 'a2', name: '招行储蓄', kind: 'bank', balance: 48620, updatedAt: today },
-      { id: 'a3', name: '支付宝', kind: 'alipay', balance: 9350, updatedAt: today },
-      { id: 'a4', name: '微信零钱', kind: 'wechat', balance: 612, updatedAt: today },
-      { id: 'a5', name: '招行信用卡', kind: 'card', balance: -2340, updatedAt: today },
-      { id: 'a6', name: '相机+镜头', kind: 'asset', balance: 18000, note: '估值', updatedAt: today },
+      { id: 'a1', name: '现金', kind: 'cash', balance: 0, updatedAt: today },
+      { id: 'a2', name: '银行卡', kind: 'bank', balance: 0, updatedAt: today },
+      { id: 'a3', name: '支付宝', kind: 'alipay', balance: 0, updatedAt: today },
+      { id: 'a4', name: '微信零钱', kind: 'wechat', balance: 0, updatedAt: today },
+      { id: 'a5', name: '信用卡', kind: 'card', balance: 0, updatedAt: today },
+      { id: 'a6', name: '其他资产', kind: 'asset', balance: 0, updatedAt: today },
     ],
-    txns: [
-      { id: 'x1', accountId: 'a2', type: 'income', amount: 8000, category: '工资', date: today, time: '09:30' },
-      { id: 'x2', accountId: 'a3', type: 'expense', amount: 68, category: '餐饮', date: today, time: '12:10' },
-      { id: 'x3', accountId: 'a4', type: 'expense', amount: 23.5, category: '交通', date: today, time: '18:40' },
-    ],
-    snapshots: [{ id: 's1', date: today, netWorth: 75022 }],
+    txns: [],
+    snapshots: [{ id: 's1', date: today, netWorth: 0 }],
   }
+}
+
+// 仅清理旧版本预置的账本演示数据；用户自己新增的账户或流水绝不会被改动。
+function migrateDemoLedger(ledger: Ledger | undefined, today: string): Ledger {
+  if (!ledger) return defaultLedger(today)
+  const demoIds = new Set(['a1', 'a2', 'a3', 'a4', 'a5', 'a6'])
+  const onlyDemoAccounts = ledger.accounts.length === 6 && ledger.accounts.every(a => demoIds.has(a.id))
+  const onlyDemoTransactions = ledger.txns.length === 3 && ledger.txns.every(t => ['x1', 'x2', 'x3'].includes(t.id))
+  if (!onlyDemoAccounts || !onlyDemoTransactions) return ledger
+  return defaultLedger(today)
 }
 
 // ===== 订阅机制 =====
@@ -292,7 +298,7 @@ function read(): AppData {
           weekDist: parsed.weekDist ?? demo.stats.weekDist.map(w => ({ ...w })),
           focusSessions: parsed.focusSessions ?? [],
           focusSettings: parsed.focusSettings ?? { pomodoroMin: 25, categories: ['content', 'ai', 'health', 'class', 'work', 'life'], sound: true, notification: true },
-          ledger: parsed.ledger ?? defaultLedger(todayStr()),
+          ledger: migrateDemoLedger(parsed.ledger, todayStr()),
           trendingTopics: parsed.trendingTopics ?? pickTrending(8),
           trendingSource: parsed.trendingSource ?? defaultTrendingSource(),
         }
