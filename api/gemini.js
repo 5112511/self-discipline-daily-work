@@ -1,4 +1,5 @@
-const MODEL = 'sensenova-6.8-flash-lite'
+const MODELS = ['glm-5.2', 'deepseek-v4-flash', 'sensenova-6.8-flash-lite']
+const API_URL = 'https://token.sensenova.cn/v1/chat/completions'
 
 export default async function handler(req, res) {
   if (req.method !== 'POST') return res.status(405).json({ error: 'Method not allowed' })
@@ -19,14 +20,26 @@ export default async function handler(req, res) {
       prompt = `你是一名中文内容创作顾问。围绕选题给出实用建议。选题：${title}；平台：${platform || '未指定'}；阶段：${stage || '灵感'}；下一步：${nextAction || '未设置'}。严格返回 JSON：{"titles":["标题1","标题2","标题3"],"angle":"一句话切入角度","outline":["开头钩子","核心内容","结尾行动"],"nextAction":"今天最值得执行的一步"}`
     }
 
-    const response = await fetch('https://token.sensenova.cn/v1/chat/completions', {
-      method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
-      body: JSON.stringify({ model: MODEL, messages: [{ role: 'system', content: '你必须按用户要求输出有效 JSON，不要输出 Markdown。' }, { role: 'user', content: prompt }], stream: false, temperature: 0.55 }),
-    })
-    const payload = await response.json()
-    if (!response.ok) return res.status(response.status).json({ error: payload?.error?.message || 'SenseNova 请求失败' })
-    const text = payload?.choices?.[0]?.message?.content || ''
-    try { return res.status(200).json(JSON.parse(text.replace(/^```json\s*|\s*```$/g, '').trim())) } catch { return res.status(200).json({ raw: text }) }
+    let lastError = 'SenseNova 请求失败'
+    for (const model of MODELS) {
+      try {
+        const response = await fetch(API_URL, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${apiKey}` },
+          body: JSON.stringify({ model, messages: [{ role: 'system', content: '你必须按用户要求输出有效 JSON，不要输出 Markdown。' }, { role: 'user', content: prompt }], stream: false, temperature: 0.55 }),
+        })
+        const payload = await response.json()
+        if (!response.ok) {
+          lastError = payload?.error?.message || `${model} 请求失败`
+          continue
+        }
+        const text = payload?.choices?.[0]?.message?.content || ''
+        try { return res.status(200).json({ ...JSON.parse(text.replace(/^```json\s*|\s*```$/g, '').trim()), model }) } catch { return res.status(200).json({ raw: text, model }) }
+      } catch (error) {
+        lastError = error instanceof Error ? error.message : `${model} 服务异常`
+      }
+    }
+    return res.status(502).json({ error: `所有 AI 模型均不可用：${lastError}` })
   } catch (error) {
     return res.status(500).json({ error: error instanceof Error ? error.message : 'SenseNova 服务异常' })
   }
