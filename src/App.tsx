@@ -14,6 +14,7 @@ import { LedgerPage } from './pages/LedgerPage'
 import { TrendingPage } from './pages/TrendingPage'
 import { ProjectDetailPage } from './pages/ProjectDetailPage'
 import { HistoryPage } from './pages/HistoryPage'
+import { CountdownPage } from './pages/CountdownPage'
 import { AuthPage } from './pages/AuthPage'
 import { useAuth } from './lib/auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
@@ -44,7 +45,7 @@ export default function App() {
   const [taskSheet, setTaskSheet] = useState<{ open: boolean; task: Task | null }>({ open: false, task: null })
   const [focus, setFocus] = useState<{ open: boolean; taskId?: string }>({ open: false })
   const [drawer, setDrawer] = useState(false)
-  const [extraView, setExtraView] = useState<null | 'ledger' | 'trending' | 'history' | { view: 'project'; projectId: string }>(null)
+  const [extraView, setExtraView] = useState<null | 'ledger' | 'trending' | 'history' | 'countdown' | { view: 'project'; projectId: string }>(null)
   const [offlineMode, setOfflineMode] = useState(!auth.isConfigured && !auth.user)
 
   // 切换 tab 时关闭额外视图
@@ -75,6 +76,7 @@ export default function App() {
     else if (k === 'ledger') { setExtraView('ledger') }
     else if (k === 'trending') { setExtraView('trending') }
     else if (k === 'history') { setExtraView('history') }
+    else if (k === 'countdown') { setExtraView('countdown') }
   }
 
   const openProjectDetail = useCallback((projectId: string) => setExtraView({ view: 'project', projectId }), [])
@@ -109,6 +111,7 @@ export default function App() {
               {extraView === 'ledger' && <LedgerPage onBack={closeExtra} />}
               {extraView === 'trending' && <TrendingPage onBack={closeExtra} />}
               {extraView === 'history' && <HistoryPage onBack={closeExtra} />}
+              {extraView === 'countdown' && <CountdownPage onBack={closeExtra} />}
               {extraView && (extraView as { view: string }).view === 'project' && <ProjectDetailPage projectId={(extraView as { projectId: string }).projectId} onBack={closeExtra} onEditTask={openEdit} />}
               {!extraView && tab === 'today' && <TodayPage onSwitchTab={switchTab} onOpenHistory={() => setExtraView('history')} />}
               {!extraView && tab === 'project' && <ProjectPage onOpenDetail={openProjectDetail} />}

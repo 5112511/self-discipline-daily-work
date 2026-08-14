@@ -26,6 +26,14 @@ export const DOMAIN_ICON: Record<Domain, string> = {
   life: '◐',
 }
 
+export interface CountdownDay {
+  id: string
+  title: string
+  date: string // YYYY-MM-DD
+  showOnHome: boolean
+  createdAt: string
+}
+
 export type TaskStatus = 'inbox' | 'pending' | 'doing' | 'waiting' | 'done' | 'cancelled'
 export type Priority = 'high' | 'medium' | 'low'
 export type InspirationSource = 'manual' | 'voice' | 'gmail' | 'image' | 'web' | 'other'

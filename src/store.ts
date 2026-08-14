@@ -1,4 +1,4 @@
-import type { DemoData, Task, Inspiration, Project, Schedule, Domain, FocusSession, FocusSettings, Ledger, LedgerAccount, LedgerTxn, LedgerSnapshot, TrendingTopic, TrendingCategory, TrendingSource, BloggerRef, TrendingPlatform } from './types'
+import type { DemoData, Task, Inspiration, Project, Schedule, Domain, FocusSession, FocusSettings, Ledger, LedgerAccount, LedgerTxn, LedgerSnapshot, TrendingTopic, TrendingCategory, TrendingSource, BloggerRef, TrendingPlatform, CountdownDay } from './types'
 import { demoData as defaultDemo } from './data'
 import { pushToCloud, pullFromCloud, mergeData, clearCloudData } from './lib/sync'
 
@@ -20,6 +20,7 @@ export interface AppData {
   inspirations: Inspiration[]
   projects: Project[]
   schedules: Schedule[]
+  countdownDays: CountdownDay[]
   // 头部与统计中部分"日级"信息仍用 demo 兜底
   meta: {
     todayProgress: number
@@ -144,6 +145,7 @@ function buildInitialData(): AppData {
     inspirations: d.inspirations.map(i => ({ ...i })),
     projects: d.projects.map(p => structuredCloneSafe(p)),
       schedules: d.todayTimeline.map(s => ({ ...s, date: todayStr() })),
+countdownDays: [],
     meta: {
       todayProgress: d.todayProgress,
       streakDays: d.streakDays,
@@ -285,6 +287,7 @@ function read(): AppData {
           inspirations: parsed.inspirations ?? [],
           projects,
           schedules: (parsed.schedules ?? []).map(s => ({ ...s, date: s.date || todayStr() })),
+countdownDays: parsed.countdownDays ?? [],
           meta: parsed.meta ?? {
             todayProgress: demo.todayProgress,
             streakDays: demo.streakDays,
@@ -394,6 +397,7 @@ export const store = {
       inspirations: [],
       projects: emptyProjects,
       schedules: [],
+      countdownDays: [],
       meta: cur.meta ?? { todayProgress: 0, streakDays: 0, greeting: '全新开始', mood: '○' },
       settings: cur.settings ?? { avatarText: '玥', displayName: '玥莹' },
       inboxCleared: 0,
@@ -680,6 +684,24 @@ export const store = {
   // 根据 domain 跳转到对应项目
   projectIdOfDomain(domain: Domain): string | undefined {
     return read().projects.find(p => p.domain === domain)?.id
+  },
+
+  // ===== 倒数日 =====
+  addCountdownDay(item: Omit<CountdownDay, 'id' | 'createdAt' | 'showOnHome'>) {
+    const data = read()
+    const showOnHome = data.countdownDays.length === 0
+    write({ ...data, countdownDays: [...data.countdownDays.map(d => showOnHome ? { ...d, showOnHome: false } : d), { ...item, id: 'cd' + Date.now(), createdAt: new Date().toISOString(), showOnHome }] })
+  },
+  updateCountdownDay(id: string, patch: Partial<CountdownDay>) {
+    const data = read()
+    const makeHome = patch.showOnHome === true
+    write({ ...data, countdownDays: data.countdownDays.map(d => d.id === id ? { ...d, ...patch } : makeHome ? { ...d, showOnHome: false } : d) })
+  },
+  deleteCountdownDay(id: string) {
+    const data = read()
+    const removed = data.countdownDays.find(d => d.id === id)
+    const rest = data.countdownDays.filter(d => d.id !== id)
+    write({ ...data, countdownDays: removed?.showOnHome && rest.length ? [{ ...rest[0], showOnHome: true }, ...rest.slice(1)] : rest })
   },
 
   // ===== 日程 =====

@@ -129,6 +129,18 @@
 .knowledge-delete { flex: none; border: 0; background: transparent; color: var(--ink-3); font-size: 11px; padding: 1px 0; }
 .knowledge-delete:hover { color: var(--danger); }
 .knowledge-card .t-body { margin-top: 4px; font-size: 12px; line-height: 1.55; color: var(--ink-2); }
+.home-countdown { width: 64px; min-height: 56px; display: flex; flex-wrap: wrap; align-content: center; justify-content: center; column-gap: 3px; text-align: center; border: 1px solid var(--ink); border-radius: 50%; padding: 4px; color: var(--ink); }
+.home-countdown strong { font-size: 21px; line-height: 22px; }
+.home-countdown span { align-self: flex-end; font-size: 10px; padding-bottom: 2px; }
+.home-countdown em { width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: 9px; font-style: normal; color: var(--ink-3); }
+.countdown-add { display: grid; gap: 9px; }
+.countdown-add .chip { justify-self: start; }
+.countdown-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); }
+.countdown-row:last-child { border-bottom: 0; }
+.countdown-num { min-width: 58px; font-size: 21px; font-weight: 700; text-align: center; }
+.countdown-num small { display: block; color: var(--ink-3); font-size: 10px; font-weight: 400; }
+.countdown-delete { border: 0; background: transparent; color: var(--ink-3); font-size: 11px; }
+.countdown-delete:hover { color: var(--danger); }
 .pipe-archive-btn { margin-top: 7px; padding: 4px 7px; border: 0; border-radius: 5px; background: var(--ink); color: #fff; font-size: 10px; }
 .content-modal-mask { position: fixed; z-index: 60; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(10, 15, 20, .38); }
 .content-modal { width: min(100%, 540px); max-height: 84vh; overflow: auto; padding: 18px; border: 1px solid var(--line); border-radius: 14px; background: var(--bg-card); box-shadow: 0 16px 44px rgba(0,0,0,.18); }

@@ -3,13 +3,14 @@ import { useStore } from '../useStore'
 import { DOMAIN_LABEL } from '../types'
 import { IconClose, IconSun, IconCalendar, IconWallet, IconBolt, IconChevronRight, IconClock } from './Icons'
 
-export type DrawerItem = 'today' | 'ledger' | 'schedule' | 'trending' | 'history'
+export type DrawerItem = 'today' | 'ledger' | 'schedule' | 'trending' | 'history' | 'countdown'
 
 const ITEMS: { key: DrawerItem; label: string; desc: string; Icon: any }[] = [
   { key: 'today', label: '计划', desc: '今日 Top3 · 待办', Icon: IconSun },
   { key: 'history', label: '历史', desc: '时间轴日记 · 回收站', Icon: IconClock },
   { key: 'ledger', label: '账本', desc: '净资产 · 收支 · 账户', Icon: IconWallet },
   { key: 'schedule', label: '日程', desc: '时间轴 · 日历', Icon: IconCalendar },
+  { key: 'countdown', label: '倒数日', desc: '重要日子 · 主页展示', Icon: IconClock },
   { key: 'trending', label: '热点跟踪', desc: '微博/小红书/抖音 · 关键词过滤', Icon: IconBolt },
 ]
 

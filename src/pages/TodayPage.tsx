@@ -17,6 +17,12 @@ function domainChip(d: Task['domain']): React.CSSProperties {
   return { background: c.soft, color: c.ink, borderColor: c.base + '55' }
 }
 
+function daysUntil(date: string) {
+  const target = new Date(date + 'T00:00:00')
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  return Math.round((target.getTime() - today.getTime()) / 86400000)
+}
+
 function Ring({ value, size = 56, stroke = 5 }: { value: number; size?: number; stroke?: number }) {
   const r = (size - stroke) / 2
   const c = 2 * Math.PI * r
@@ -178,6 +184,7 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
   const todayProgress = totalToday > 0 ? Math.round((doneTasks.length / totalToday) * 100) : 0
   const inspirations = data.inspirations.filter(i => !i.archived).slice(0, 5)
   const todayTimeline = data.schedules.filter(s => s.date === new Date().toISOString().slice(0, 10)).sort((a, b) => a.start.localeCompare(b.start))
+  const homeCountdown = data.countdownDays.find(d => d.showOnHome)
 
   const greeting = data.meta.greeting
   const streak = data.meta.streakDays
@@ -246,7 +253,7 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
           </div>
         </div>
         <div className="hero-right">
-          <Ring value={todayProgress} />
+          {homeCountdown ? <div className="home-countdown"><strong>{Math.abs(daysUntil(homeCountdown.date))}</strong><span>{daysUntil(homeCountdown.date) >= 0 ? '天后' : '天前'}</span><em>{homeCountdown.title}</em></div> : <Ring value={todayProgress} />}
           <button className="avatar hero-avatar tap" style={{ marginTop: 10, width: 40, height: 40 }} onClick={() => onSwitchTab?.('me')} aria-label="我的">{data.settings.avatarText}</button>
         </div>
       </div>
