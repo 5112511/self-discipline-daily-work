@@ -196,7 +196,7 @@ function parseICSDate(dt: string): { ymd: string; hhmm: string } {
 
 export function exportICS(schedules: { title: string; date: string; start: string; end: string; domain?: string; done?: boolean }[]): string {
   const lines: string[] = []
-  lines.push('BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PersonalOS//EN', 'CALSCALE:GREGORIAN')
+  lines.push('BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//PersonalOS//CN', 'CALSCALE:GREGORIAN', 'METHOD:PUBLISH', 'X-WR-CALNAME:Personal OS 日程', 'X-WR-TIMEZONE:Asia/Shanghai')
   for (const s of schedules) {
     lines.push('BEGIN:VEVENT')
     lines.push(`UID:${s.date}-${s.start}-${escapeICS(s.title)}@personal-os`)

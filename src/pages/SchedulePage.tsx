@@ -305,16 +305,25 @@ export function SchedulePage() {
     setView('day')
   }
 
-  // ics 导出
-  const handleExportICS = () => {
+  // 移动端：优先打开系统分享面板（iOS 文件可直接导入日历；Android 可选择日历/文件应用）；不支持时降级下载。
+  const handleExportICS = async () => {
     const ics = exportICS(data.schedules.map(s => ({ title: s.title, date: s.date, start: s.start, end: s.end, domain: s.domain, done: s.done })))
-    const blob = new Blob([ics], { type: 'text/calendar' })
-    const url = URL.createObjectURL(blob)
+    const filename = `Personal-OS-${todayYmd()}.ics`
+    const file = new File([ics], filename, { type: 'text/calendar;charset=utf-8' })
+    try {
+      if (navigator.share && navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ title: '导入 Personal OS 日程', text: '选择系统日历或日历应用导入这些日程。', files: [file] })
+        toast('已打开系统分享，请选择日历应用导入')
+        return
+      }
+    } catch (error) {
+      if ((error as DOMException).name === 'AbortError') return
+    }
+    const url = URL.createObjectURL(file)
     const a = document.createElement('a')
-    a.href = url; a.download = `schedules-${todayYmd()}.ics`
-    a.click()
-    URL.revokeObjectURL(url)
-    toast('已导出 .ics，可用系统日历打开')
+    a.href = url; a.download = filename; a.click()
+    setTimeout(() => URL.revokeObjectURL(url), 1000)
+    toast('日历文件已下载：iOS 请在「文件」中点开并添加；Android 请用日历应用打开')
   }
 
   // ics 导入
@@ -384,9 +393,9 @@ export function SchedulePage() {
           <span className="section-action">.ics</span>
         </div>
         <div className="card card-pad">
-          <div className="t-cap" style={{ marginBottom: 10 }}>Web 应用无法直连系统日历，可用 .ics 文件做"准关联"：导出后用系统日历打开即可同步到 iPhone。</div>
+          <div className="t-cap" style={{ marginBottom: 10 }}>一键导入会优先唤起手机系统分享：iOS 请选择「添加到日历」；Android 请选择日历应用。桌面端会下载兼容的 .ics 文件。</div>
           <div style={{ display: 'flex', gap: 8, flexWrap: 'wrap' }}>
-            <button className="chip chip-dark tap" onClick={handleExportICS}>导出 .ics</button>
+            <button className="chip chip-dark tap" onClick={handleExportICS}>一键导入系统日历</button>
             <button className="chip line tap" onClick={() => fileRef.current?.click()}>导入 .ics</button>
             <input ref={fileRef} type="file" accept=".ics,text/calendar" style={{ display: 'none' }} onChange={(e) => { const f = e.target.files?.[0]; if (f) handleImportICS(f); e.target.value = '' }} />
           </div>
