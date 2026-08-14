@@ -122,10 +122,7 @@ export function ProjectPage({ onOpenDetail }: { onOpenDetail?: (projectId: strin
 
       {/* 总览 */}
       <div className="pov-grid">
-        {projects.map(p => <ProjectOverviewCard key={p.id} p={p} onJump={() => {
-          const el = document.getElementById('proj-' + p.id)
-          el?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-        }} />)}
+        {projects.map(p => <ProjectOverviewCard key={p.id} p={p} onJump={() => onOpenDetail?.(p.id)} />)}
       </div>
 
       {/* A. 内容创作看板 */}
