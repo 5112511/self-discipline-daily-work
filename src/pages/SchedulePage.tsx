@@ -200,7 +200,7 @@ function WeekView({ year, weekIdx, onJump }: { year: number; weekIdx: number; on
               <div className="week-evt-date">{(d.date.getMonth() + 1)}/{d.day}</div>
               <div className="week-evt-items">
                 {evts.map(e => (
-                  <div key={e.id} className="week-evt-item" style={{ background: e.done ? 'var(--bg-soft)' : DENSITY[e.domain], color: e.done ? 'var(--ink-3)' : DENSITY_FG[e.domain] }}>
+                  <div key={e.id} className={'week-evt-item' + (e.done ? ' done' : '')} style={{ background: DENSITY[e.domain], color: DENSITY_FG[e.domain] }}>
                     <span className="week-evt-time">{e.start}</span>
                     <span className="week-evt-title">{e.title}</span>
                   </div>

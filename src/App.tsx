@@ -1,4 +1,4 @@
-import React, { useState, useCallback, useEffect } from 'react'
+import React, { useState, useCallback } from 'react'
 import { TabBar, FabButton, ActionSheet, type TabKey } from './components/TabBar'
 import { TodayPage } from './pages/TodayPage'
 import { ProjectPage } from './pages/ProjectPage'
@@ -17,9 +17,8 @@ import { HistoryPage } from './pages/HistoryPage'
 import { AuthPage } from './pages/AuthPage'
 import { useAuth } from './lib/auth'
 import { ErrorBoundary } from './components/ErrorBoundary'
-import { store, onTaskDone, type DoneLogEvent } from './store'
-import { todayYmd } from './calendar'
-import type { Task, Domain } from './types'
+import { store } from './store'
+import type { Task } from './types'
 import { IconCheck, IconBulb, IconNote, IconCalendar, IconFolder, IconPhoto, IconMenu } from './components/Icons'
 
 // 全局任务表单上下文：任意页面可打开"新建/编辑任务"
@@ -36,75 +35,6 @@ export const useFocus = () => React.useContext(FocusCtx)
 // 全局侧边栏上下文
 export const DrawerCtx = React.createContext<{ open: () => void; close: () => void }>({ open: () => {}, close: () => {} })
 export const useDrawer = () => React.useContext(DrawerCtx)
-
-// 完成任务时询问“什么时候做的”并录入日历
-function DoneLogPrompt() {
-  const toast = useToast()
-  const [pending, setPending] = useState<DoneLogEvent | null>(null)
-  const [form, setForm] = useState({ date: todayYmd(), start: '14:00', end: '15:00' })
-
-  useEffect(() => {
-    const off = onTaskDone((e) => {
-      setForm({ date: todayYmd(), start: nowHm(), end: nowHm(60) })
-      setPending(e)
-    })
-    return () => { off() }
-  }, [])
-
-  if (!pending) return null
-
-  const save = () => {
-    store.addSchedule({
-      title: pending.title,
-      domain: pending.domain as Domain,
-      date: form.date,
-      start: form.start,
-      end: form.end,
-      taskId: pending.taskId,
-      done: true,
-    })
-    toast('已录入日历 ✓')
-    setPending(null)
-  }
-  const skipIt = () => { setPending(null) }
-
-  return (
-    <div className="sheet-mask show" onClick={skipIt}>
-      <div className="sheet" onClick={(e) => e.stopPropagation()} style={{ paddingTop: 8 }}>
-        <div className="sheet-handle" />
-        <div className="sheet-head">
-          <div className="t-h3">记录完成时间</div>
-          <button className="t-sub tap" onClick={skipIt}>跳过</button>
-        </div>
-        <div className="task-form">
-          <div className="t-sub" style={{ marginBottom: 8 }}>「{pending.title}」什么时候完成的？</div>
-          <label className="tf-label">日期</label>
-          <input className="tf-input mono" type="date" value={form.date} onChange={(e) => setForm({ ...form, date: e.target.value })} />
-          <div className="tf-row2">
-            <div>
-              <label className="tf-label">开始</label>
-              <input className="tf-input mono" type="time" value={form.start} onChange={(e) => setForm({ ...form, start: e.target.value })} />
-            </div>
-            <div>
-              <label className="tf-label">结束</label>
-              <input className="tf-input mono" type="time" value={form.end} onChange={(e) => setForm({ ...form, end: e.target.value })} />
-            </div>
-          </div>
-          <button className="confirm-btn" onClick={save}>录入日历</button>
-          <button className="chip line tap" style={{ marginTop: 8, width: '100%' }} onClick={skipIt}>不记录</button>
-        </div>
-      </div>
-    </div>
-  )
-}
-
-function nowHm(addMin = 0): string {
-  const d = new Date()
-  const total = d.getHours() * 60 + d.getMinutes() + addMin
-  const h = Math.floor(total / 60) % 24
-  const m = total % 60
-  return String(h).padStart(2, '0') + ':' + String(m).padStart(2, '0')
-}
 
 export default function App() {
   const auth = useAuth()
@@ -201,8 +131,7 @@ export default function App() {
             />
             <FocusOverlay open={focus.open} presetTaskId={focus.taskId} onClose={closeFocus} />
             <SideDrawer open={drawer} onClose={closeDrawer} onPick={onDrawerPick} />
-            <DoneLogPrompt />
-          </div>
+                </div>
           )}
         </DrawerCtx.Provider>
         </FocusCtx.Provider>

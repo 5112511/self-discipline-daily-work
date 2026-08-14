@@ -170,14 +170,14 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
 
   // 从 store 数据派生首页各模块（统一过滤已软删除）
   const allTasks = data.tasks.filter(t => !t.deletedAt)
-  const top3 = allTasks.filter(t => t.inTop3).sort((a, b) => (a.top3Order ?? 99) - (b.top3Order ?? 99)).slice(0, 3)
+  const top3 = allTasks.filter(t => t.inTop3 && t.status !== 'done').sort((a, b) => (a.top3Order ?? 99) - (b.top3Order ?? 99)).slice(0, 3)
   const overdueTasks = allTasks.filter(t => t.overdue && t.status !== 'done')
   const reminders = allTasks.filter(t => !t.inTop3 && t.status !== 'done' && t.status !== 'cancelled').slice(0, 8)
   const doneTasks = allTasks.filter(t => t.status === 'done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
   const totalToday = allTasks.filter(t => t.inToday || t.inTop3 || t.status === 'done').length
   const todayProgress = totalToday > 0 ? Math.round((doneTasks.length / totalToday) * 100) : 0
   const inspirations = data.inspirations.filter(i => !i.archived).slice(0, 5)
-  const todayTimeline = data.schedules
+  const todayTimeline = data.schedules.filter(s => s.date === new Date().toISOString().slice(0, 10)).sort((a, b) => a.start.localeCompare(b.start))
 
   const greeting = data.meta.greeting
   const streak = data.meta.streakDays

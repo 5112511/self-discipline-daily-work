@@ -191,6 +191,8 @@
 .day-hour-empty { position: absolute; inset: 0; cursor: pointer; z-index: 0; }
 .day-evt { z-index: 1; position: absolute; left: 4px; right: 4px; border-radius: 8px; padding: 3px 7px; overflow: hidden; display: flex; flex-direction: column; justify-content: center; }
 .day-evt.done { opacity: .7; }
+.day-evt.done .day-evt-title, .week-evt-item.done .week-evt-title { text-decoration: line-through; }
+.week-evt-item.done { opacity: .68; }
 .day-evt-time { font-size: 9px; line-height: 1.15; opacity: .8; font-variant-numeric: tabular-nums; white-space: nowrap; }
 .day-evt-title { font-size: 11px; font-weight: 600; line-height: 1.2; margin-top: 2px; overflow: hidden; display: -webkit-box; -webkit-box-orient: vertical; -webkit-line-clamp: 2; overflow-wrap: anywhere; }
 

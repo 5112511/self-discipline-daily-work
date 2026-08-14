@@ -451,15 +451,22 @@ export const store = {
     if (patch.status && patch.status !== 'done' && patch.completedAt === undefined) {
       // 取消完成时清空 completedAt（显式传 undefined）
     }
-    write({ ...data, tasks: data.tasks.map(t => t.id === id ? { ...t, ...p } : t) })
-    // 完成任务且之前未完成时，若没有关联日程，触发事件让 UI 询问时间段
-    if (patch.status === 'done' && !wasDone) {
-      const t = data.tasks.find(x => x.id === id)
-      if (t) {
-        const hasSch = data.schedules.some(s => s.taskId === id)
-        if (!hasSch) emitTaskDone({ taskId: id, title: t.title, domain: t.domain })
-      }
-    }
+    const completedNow = patch.status === 'done' && !wasDone
+    const completedAt = p.completedAt || new Date().toISOString().slice(0, 10)
+    const now = new Date()
+    const start = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0')
+    const endDate = new Date(now.getTime() + 30 * 60 * 1000)
+    const end = String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0')
+    const task = data.tasks.find(t => t.id === id)
+    const schedules = completedNow && task
+      ? (() => {
+          const linked = data.schedules.find(s => s.taskId === id)
+          return linked
+            ? data.schedules.map(s => s.id === linked.id ? { ...s, done: true } : s)
+            : [...data.schedules, { id: 's' + Date.now(), title: task.title, domain: task.domain, date: completedAt, start, end, projectId: task.projectId, taskId: id, done: true }]
+        })()
+      : data.schedules
+    write({ ...data, schedules, tasks: data.tasks.map(t => t.id === id ? { ...t, ...p, completedAt, inTop3: completedNow ? false : t.inTop3, top3Order: completedNow ? undefined : t.top3Order } : t) })
   },
   // 软删除：标记 deletedAt，不真正移除（可在历史中恢复）
   deleteTask(id: string) {
