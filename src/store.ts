@@ -753,6 +753,10 @@ export const store = {
     const data = read()
     write({ ...data, projects: data.projects.map(p => p.id === projectId ? { ...p, creativeKnowledge: [{ ...knowledge, id: 'ck' + Date.now(), createdAt: new Date().toISOString() }, ...(p.creativeKnowledge || [])] } : p) })
   },
+  deleteCreativeKnowledge(projectId: string, knowledgeId: string) {
+    const data = read()
+    write({ ...data, projects: data.projects.map(p => p.id === projectId ? { ...p, creativeKnowledge: (p.creativeKnowledge || []).filter(k => k.id !== knowledgeId) } : p) })
+  },
   addContent(projectId: string, title: string, platform: any = '小红书', stage: any = 'idea', options: { note?: string; dueDate?: string; meetingContact?: string } = {}) {
     const data = read()
     const task = this.addTask({ title, note: options.note, domain: 'content', projectId, dueDate: options.dueDate, meetingContact: options.meetingContact, status: 'pending', nextAction: options.note })

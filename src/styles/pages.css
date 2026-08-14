@@ -125,6 +125,9 @@
 .creative-knowledge { margin-top: 16px; padding-top: 14px; border-top: 1px solid var(--line); }
 .knowledge-card { padding: 10px 0; border-bottom: 1px solid var(--line-2); }
 .knowledge-card:last-child { border-bottom: none; }
+.knowledge-head { display: flex; align-items: flex-start; justify-content: space-between; gap: 8px; }
+.knowledge-delete { flex: none; border: 0; background: transparent; color: var(--ink-3); font-size: 11px; padding: 1px 0; }
+.knowledge-delete:hover { color: var(--danger); }
 .knowledge-card .t-body { margin-top: 4px; font-size: 12px; line-height: 1.55; color: var(--ink-2); }
 .pipe-archive-btn { margin-top: 7px; padding: 4px 7px; border: 0; border-radius: 5px; background: var(--ink); color: #fff; font-size: 10px; }
 .content-modal-mask { position: fixed; z-index: 60; inset: 0; display: flex; align-items: flex-end; justify-content: center; padding: 16px; background: rgba(10, 15, 20, .38); }
