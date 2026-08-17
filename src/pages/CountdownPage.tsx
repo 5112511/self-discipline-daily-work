@@ -31,7 +31,7 @@ export function CountdownPage({ onBack }: { onBack: () => void }) {
     <div className="section"><div className="section-head"><span className="section-title">我的倒数日</span><span className="t-cap">选择一个展示在主页</span></div>
       <div className="card">
         {data.countdownDays.length === 0 && <div className="empty-block"><div className="t-cap">还没有倒数日</div></div>}
-        {data.countdownDays.map(item => { const days = daysUntil(item.date); return <div key={item.id} className="countdown-row">
+        {[...data.countdownDays].sort((a, b) => a.date.localeCompare(b.date)).map(item => { const days = daysUntil(item.date); return <div key={item.id} className="countdown-row">
           <div className="countdown-num">{days >= 0 ? days : Math.abs(days)}<small>{days >= 0 ? ' 天后' : ' 天前'}</small></div>
           <div style={{ flex: 1, minWidth: 0 }}><div className="t-body">{item.title}</div><div className="t-cap">{item.date}{item.showOnHome ? ' · 主页展示中' : ''}</div></div>
           <button className={'chip ' + (item.showOnHome ? 'chip-dark' : 'line') + ' tap'} onClick={() => store.updateCountdownDay(item.id, { showOnHome: true })}>{item.showOnHome ? '主页展示' : '展示到主页'}</button>
