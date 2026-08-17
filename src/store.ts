@@ -992,6 +992,16 @@ export const store = {
   },
 
   // ===== 账本 =====
+  resetLedger(): Ledger {
+    const data = read()
+    const cleared: Ledger = { accounts: data.ledger.accounts.map(a => ({ ...a, balance: 0, updatedAt: todayStr() })), txns: [], snapshots: [{ id: 's' + Date.now(), date: todayStr(), netWorth: 0 }] }
+    write({ ...data, ledger: cleared })
+    return data.ledger
+  },
+  restoreLedger(ledger: Ledger) {
+    const data = read()
+    write({ ...data, ledger })
+  },
   addLedgerAccount(a: Partial<LedgerAccount>): LedgerAccount {
     const data = read()
     const acc: LedgerAccount = {

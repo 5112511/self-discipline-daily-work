@@ -1,8 +1,9 @@
-import React, { useState } from 'react'
+import React, { useEffect, useRef, useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
-import { ACCOUNT_KIND_LABEL, type AccountKind, type LedgerAccount, type TxnType } from '../types'
+import { ACCOUNT_KIND_LABEL, type AccountKind, type Ledger, type LedgerAccount, type TxnType } from '../types'
 import { useToast } from '../components/Toast'
+import { useConfirm } from '../components/ConfirmSheet'
 import { IconWallet, IconPlus, IconTrash, IconArrowUp, IconArrowDown } from '../components/Icons'
 import { monthMatrix, todayYmd, DOW_MON, MONTH_NAMES, toYmd } from '../calendar'
 import { colorOf, accountKindColor } from '../palette'
@@ -21,6 +22,7 @@ function catColor(key: string): string { return colorOf(key).base }
 export function LedgerPage({ onBack }: { onBack: () => void }) {
   const data = useStore()
   const toast = useToast()
+  const confirm = useConfirm()
   const ledger = data.ledger
 
   const [view, setView] = useState<'overview' | 'txns'>('overview')
@@ -34,6 +36,9 @@ export function LedgerPage({ onBack }: { onBack: () => void }) {
   const [acctForm, setAcctForm] = useState({ id: '', name: '', kind: 'cash' as AccountKind, balance: 0, note: '' })
   const [txnSheet, setTxnSheet] = useState(false)
   const [txnForm, setTxnForm] = useState({ id: '', accountId: '', type: 'expense' as TxnType, amount: 0, category: '', note: '' })
+  const [undoLedger, setUndoLedger] = useState<Ledger | null>(null)
+  const undoTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  useEffect(() => () => { if (undoTimer.current) clearTimeout(undoTimer.current) }, [])
 
   const netWorth = ledger.accounts.reduce((a, x) => a + x.balance, 0)
   const assets = ledger.accounts.filter(a => a.kind === 'asset').reduce((a, x) => a + x.balance, 0)
@@ -102,6 +107,23 @@ export function LedgerPage({ onBack }: { onBack: () => void }) {
     store.saveLedgerSnapshot(); toast('已记一笔'); setTxnSheet(false)
   }
   const delTxn = (id: string) => { store.deleteLedgerTxn(id); store.saveLedgerSnapshot(); toast('已删除') }
+  const resetLedger = async () => {
+    const ok = await confirm({ title: '全部归零？', message: '将清空所有流水，并把每个账户余额设为 ¥0。你可在 1 分钟内撤销。', confirmText: '全部归零', danger: true })
+    if (!ok) return
+    const previous = store.resetLedger()
+    setUndoLedger(previous)
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    undoTimer.current = setTimeout(() => { setUndoLedger(null); undoTimer.current = null }, 60_000)
+    toast('账本已归零，可在 1 分钟内撤销')
+  }
+  const undoReset = () => {
+    if (!undoLedger) return
+    store.restoreLedger(undoLedger)
+    setUndoLedger(null)
+    if (undoTimer.current) clearTimeout(undoTimer.current)
+    undoTimer.current = null
+    toast('已恢复归零前的账本')
+  }
   const acctName = (id: string) => ledger.accounts.find(a => a.id === id)?.name || '未知'
 
   return (
@@ -111,6 +133,7 @@ export function LedgerPage({ onBack }: { onBack: () => void }) {
         <div className="t-h3">账本</div>
         <button className="t-sub tap" onClick={openAddTxn}><IconPlus size={18} /></button>
       </div>
+      {undoLedger && <div className="ledger-undo"><span>账本已全部归零</span><button className="chip chip-dark tap" onClick={undoReset}>撤销（1分钟内）</button></div>}
 
       {/* 净资产卡 */}
       <div className="card card-pad ledger-hero">
@@ -269,7 +292,7 @@ export function LedgerPage({ onBack }: { onBack: () => void }) {
 
       {view === 'overview' && (
         <div className="card card-pad">
-          <div className="section-head"><span className="section-title">账户列表</span><button className="t-sub tap" onClick={openAddAcct}><IconPlus size={14} /></button></div>
+          <div className="section-head"><span className="section-title">账户列表</span><div style={{ display: 'flex', gap: 8 }}><button className="chip line tap" onClick={resetLedger}>全部归零</button><button className="t-sub tap" onClick={openAddAcct}><IconPlus size={14} /></button></div></div>
           <div className="ledger-accts">
             {ledger.accounts.length === 0 && <div className="t-cap" style={{ padding: 12, textAlign: 'center' }}>还没有账户</div>}
             {ledger.accounts.map(a => (
