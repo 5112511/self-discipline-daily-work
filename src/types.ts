@@ -31,6 +31,8 @@ export interface CountdownDay {
   title: string
   date: string // YYYY-MM-DD
   showOnHome: boolean
+  note?: string
+  photo?: string
   createdAt: string
 }
 
