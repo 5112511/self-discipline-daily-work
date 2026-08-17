@@ -20,10 +20,11 @@ const DENSITY_BORDER: Record<Domain, string> = Object.fromEntries(
 const DOMAINS: Domain[] = ['content', 'ai', 'health', 'class', 'work', 'life']
 
 // 把未删除任务的 dueDate 解析后按日期聚合（用于日历标记）
-function tasksByDate(tasks: { dueDate?: string; id: string; title: string; domain: any; status: string; dueTime?: string }[]): Record<string, { id: string; title: string; domain: Domain; done: boolean; dueTime?: string }[]> {
+function tasksByDate(tasks: { dueDate?: string; completedAt?: string; id: string; title: string; domain: any; status: string; dueTime?: string }[]): Record<string, { id: string; title: string; domain: Domain; done: boolean; dueTime?: string }[]> {
   const m: Record<string, { id: string; title: string; domain: Domain; done: boolean; dueTime?: string }[]> = {}
   for (const t of tasks) {
-    const ymd = parseDueDate(t.dueDate)
+    // 已完成任务只在实际完成当天显示；未完成任务则持续展示在原 DDL 日期。
+    const ymd = t.status === 'done' ? t.completedAt : parseDueDate(t.dueDate)
     if (!ymd) continue
     (m[ymd] ||= []).push({ id: t.id, title: t.title, domain: t.domain as Domain, done: t.status === 'done', dueTime: t.dueTime })
   }

@@ -141,6 +141,7 @@
 .countdown-row { display: flex; align-items: center; gap: 10px; padding: 12px 14px; border-bottom: 1px solid var(--line-2); }
 .countdown-info { flex: 1; min-width: 0; border: 0; background: transparent; color: var(--ink); text-align: left; padding: 0; }
 .countdown-info .t-cap { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; margin-top: 3px; }
+.countdown-category { display: inline-block; margin-left: 4px; padding: 1px 5px; border-radius: 4px; background: var(--bg-soft); color: var(--ink-3); font-size: 10px; font-weight: 400; vertical-align: 1px; }
 .countdown-photo { width: 58px; height: 58px; flex: none; border-radius: 9px; object-fit: cover; }
 .countdown-photo-edit { display: flex; align-items: center; gap: 12px; min-height: 58px; padding: 8px; border: 1px dashed var(--line); border-radius: 8px; }
 .countdown-photo-edit img { width: 72px; height: 72px; border-radius: 7px; object-fit: cover; }

@@ -287,7 +287,7 @@ function read(): AppData {
           inspirations: parsed.inspirations ?? [],
           projects,
           schedules: (parsed.schedules ?? []).map(s => ({ ...s, date: s.date || todayStr() })),
-countdownDays: parsed.countdownDays ?? [],
+countdownDays: (parsed.countdownDays ?? []).map(d => ({ ...d, category: d.category || 'anniversary' })),
           meta: parsed.meta ?? {
             todayProgress: demo.todayProgress,
             streakDays: demo.streakDays,

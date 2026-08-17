@@ -26,6 +26,11 @@ export const DOMAIN_ICON: Record<Domain, string> = {
   life: '◐',
 }
 
+export type CountdownCategory = 'family' | 'anniversary' | 'work-ddl'
+export const COUNTDOWN_CATEGORY_LABEL: Record<CountdownCategory, string> = {
+  family: '家人', anniversary: '纪念日', 'work-ddl': '工作 DDL',
+}
+
 export interface CountdownDay {
   id: string
   title: string
@@ -33,6 +38,7 @@ export interface CountdownDay {
   showOnHome: boolean
   note?: string
   photo?: string
+  category: CountdownCategory
   createdAt: string
 }
 
