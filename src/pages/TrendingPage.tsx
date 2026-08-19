@@ -24,10 +24,11 @@ export function TrendingPage({ onBack }: { onBack: () => void }) {
   const toast = useToast()
   const [filter, setFilter] = useState<TrendingCategory | 'all'>('all')
   const [aiLoading, setAiLoading] = useState(false)
-  const trend = data.weekTrend.length ? data.weekTrend : [3, 5, 2, 6, 4, 7, 5]
+  // 均为真实数据：近 7 天完成趋势 / 近 35 天活跃度 / 本周专注时长分布
+  const trend = data.weekTrend
   const maxTrend = Math.max(...trend, 1)
-  const heatmap = data.heatmap.length ? data.heatmap : new Array(35).fill(0).map(() => Math.floor(Math.random() * 5))
-  const weekDist = data.weekDist.length ? data.weekDist : []
+  const heatmap = data.heatmap
+  const weekDist = data.weekDist
   const maxDist = Math.max(...weekDist.map(w => w.minutes), 1)
 
   // 本周热点任务

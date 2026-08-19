@@ -358,8 +358,60 @@ function recomputeProjectProgress(p: Project): Project {
   return progress === p.progress ? p : { ...p, progress }
 }
 
+// 把 Date 格式化为 YYYY-MM-DD（本地时区）
+function ymd(d: Date): string {
+  const m = String(d.getMonth() + 1).padStart(2, '0')
+  const day = String(d.getDate()).padStart(2, '0')
+  return `${d.getFullYear()}-${m}-${day}`
+}
+
+// ===== 真实活跃度统计：完全基于任务完成/专注会话/日程/账本的真实记录动态计算，不使用任何演示或随机数据 =====
+function computeActivityStats(data: AppData): { weekTrend: number[]; heatmap: number[]; weekDist: { domain: Domain; minutes: number }[] } {
+  const today = new Date(); today.setHours(0, 0, 0, 0)
+  const activeTasks = data.tasks.filter(t => !t.deletedAt)
+  const doneDates = activeTasks.filter(t => t.status === 'done' && t.completedAt).map(t => t.completedAt!)
+  const focusDates = data.focusSessions.filter(s => !s.cancelled && s.actualMin > 0).map(s => s.date)
+  const scheduleDates = data.schedules.filter(s => s.done).map(s => s.date)
+  const ledgerDates = data.ledger.txns.map(t => t.date)
+
+  // 近 7 天每日完成趋势：任务完成数 + 已完成日程数（真实产出，不含专注时长噪声）
+  const weekTrend: number[] = []
+  for (let i = 6; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i)
+    const key = ymd(d)
+    const count = doneDates.filter(x => x === key).length + scheduleDates.filter(x => x === key).length
+    weekTrend.push(count)
+  }
+
+  // 近 35 天活跃度热力图：当天只要有完成任务/专注/日程/记账任一行为，即记为活跃（1），否则 0
+  const heatmap: number[] = []
+  for (let i = 34; i >= 0; i--) {
+    const d = new Date(today); d.setDate(today.getDate() - i)
+    const key = ymd(d)
+    const active = doneDates.includes(key) || focusDates.includes(key) || scheduleDates.includes(key) || ledgerDates.includes(key)
+    heatmap.push(active ? 1 : 0)
+  }
+
+  // 本周（周一起）领域时间分布：仅统计真实专注会话的 actualMin
+  const dow = (today.getDay() + 6) % 7 // 0=周一
+  const monday = new Date(today); monday.setDate(today.getDate() - dow)
+  const weekKeys = new Set<string>()
+  for (let i = 0; i < 7; i++) { const d = new Date(monday); d.setDate(monday.getDate() + i); weekKeys.add(ymd(d)) }
+  const domainMinutes = new Map<Domain, number>()
+  for (const s of data.focusSessions) {
+    if (s.cancelled || s.actualMin <= 0 || !weekKeys.has(s.date)) continue
+    domainMinutes.set(s.domain, (domainMinutes.get(s.domain) || 0) + s.actualMin)
+  }
+  const weekDist = Array.from(domainMinutes.entries()).map(([domain, minutes]) => ({ domain, minutes })).sort((a, b) => b.minutes - a.minutes)
+
+  return { weekTrend, heatmap, weekDist }
+}
+
 export const store = {
-  get(): AppData { return read() },
+  get(): AppData {
+    const data = read()
+    return { ...data, ...computeActivityStats(data) }
+  },
 
   // 未删除的任务（UI 层应优先用这个）
   activeTasks(): Task[] { return read().tasks.filter(t => !t.deletedAt) },
