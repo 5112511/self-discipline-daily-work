@@ -407,10 +407,19 @@ function computeActivityStats(data: AppData): { weekTrend: number[]; heatmap: nu
   return { weekTrend, heatmap, weekDist }
 }
 
+// 活跃度统计结果缓存：仅当底层数据（read() 返回的引用）变化时才重新计算，
+// 确保 get() 在数据未变时返回同一个对象引用，满足 useSyncExternalStore 的快照一致性要求（否则会触发 React #185 无限更新）。
+let statsCacheSource: AppData | null = null
+let statsCacheResult: AppData | null = null
+
 export const store = {
   get(): AppData {
     const data = read()
-    return { ...data, ...computeActivityStats(data) }
+    if (statsCacheSource === data && statsCacheResult) return statsCacheResult
+    const stats = computeActivityStats(data)
+    statsCacheSource = data
+    statsCacheResult = { ...data, ...stats }
+    return statsCacheResult
   },
 
   // 未删除的任务（UI 层应优先用这个）
