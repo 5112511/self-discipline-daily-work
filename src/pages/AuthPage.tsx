@@ -4,11 +4,12 @@ import { useToast } from '../components/Toast'
 
 type Mode = 'login' | 'signup'
 
-export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, email: string) => void; onOffline: () => void }) {
+export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, email: string, nickname?: string) => void; onOffline: () => void }) {
   const toast = useToast()
   const [mode, setMode] = useState<Mode>('login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
+  const [nickname, setNickname] = useState('')
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
 
@@ -17,6 +18,7 @@ export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, e
   const submit = async () => {
     setError('')
     if (!email || !password) { setError('请填写邮箱和密码'); return }
+    if (mode === 'signup' && !nickname.trim()) { setError('请填写你的昵称'); return }
     if (password.length < 6) { setError('密码至少 6 位'); return }
 
     const sb = getSupabase()
@@ -29,7 +31,7 @@ export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, e
         if (error) throw error
         if (data.user) {
           toast('注册成功 ✓')
-          onAuthed(data.user.id, data.user.email || email)
+          onAuthed(data.user.id, data.user.email || email, mode === 'signup' ? nickname.trim() : undefined)
         } else {
           setError('注册成功，请检查邮箱确认（部分情况需要邮箱验证）')
         }
@@ -52,7 +54,7 @@ export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, e
     <div className="page" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', justifyContent: 'center', padding: 24, background: 'var(--bg)' }}>
       <div style={{ textAlign: 'center', marginBottom: 32 }}>
         <div className="avatar" style={{ width: 64, height: 64, margin: '0 auto 12px', fontSize: 28, background: 'var(--ink)', color: 'var(--bg)' }}>玥</div>
-        <div className="t-h2" style={{ fontSize: 22, fontWeight: 700 }}>玥莹 Personal OS</div>
+        <div className="t-h2" style={{ fontSize: 22, fontWeight: 700 }}>{mode === 'signup' && nickname.trim() ? `${nickname.trim()} OS` : 'Personal OS'}</div>
         <div className="t-cap" style={{ marginTop: 6 }}>你的个人操作系统 · 账户云同步</div>
       </div>
 
@@ -71,6 +73,9 @@ export function AuthPage({ onAuthed, onOffline }: { onAuthed: (userId: string, e
           >注册</button>
         </div>
 
+        {mode === 'signup' && <div style={{ marginBottom: 12 }}>
+          <input type="text" placeholder="你的昵称（例如：玥莹）" value={nickname} onChange={e => setNickname(e.target.value)} style={inputStyle} autoComplete="nickname" />
+        </div>}
         <div style={{ marginBottom: 12 }}>
           <input
             type="email"

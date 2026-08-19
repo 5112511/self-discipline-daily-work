@@ -1,6 +1,13 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512">
-  <rect width="512" height="512" rx="112" fill="#1a1a1a"/>
-  <text x="256" y="300" font-family="-apple-system, BlinkMacSystemFont, 'PingFang SC', sans-serif"
-        font-size="200" font-weight="600" fill="#fbfbfa" text-anchor="middle">玥</text>
-  <circle cx="256" cy="380" r="10" fill="#9a9a9a"/>
+  <rect width="512" height="512" rx="112" fill="#faf6eb"/>
+  <circle cx="256" cy="270" r="172" fill="#f6e9c2"/>
+  <path d="M157 196c0-51 40-92 92-92h15c51 0 92 41 92 92v94H157z" fill="#ffd84d" stroke="#3d4654" stroke-width="8"/>
+  <path d="M157 294h199v73c0 17-13 29-29 29H186c-16 0-29-12-29-29z" fill="#6aa8c7" stroke="#3d4654" stroke-width="8"/>
+  <path d="M184 286l27 46m117-46l-27 46" stroke="#3d4654" stroke-width="10" stroke-linecap="round"/>
+  <g fill="#e9edf0" stroke="#3d4654" stroke-width="9"><circle cx="218" cy="209" r="42"/><circle cx="294" cy="209" r="42"/></g>
+  <path d="M260 208h-8" stroke="#3d4654" stroke-width="7"/>
+  <g fill="#3d4654"><circle cx="218" cy="209" r="10"/><circle cx="294" cy="209" r="10"/></g>
+  <path d="M222 250c14 21 51 21 67 0" fill="none" stroke="#3d4654" stroke-width="7" stroke-linecap="round"/>
+  <path d="M230 105l-11-25-16-10m69 35l12-25 18-8" fill="none" stroke="#3d4654" stroke-width="7" stroke-linecap="round"/>
+  <path d="M181 381h64m23 0h64" stroke="#3d4654" stroke-width="25" stroke-linecap="round"/>
 </svg>

@@ -458,22 +458,16 @@ export const store = {
   },
   updateTask(id: string, patch: Partial<Task>) {
     const data = read()
-    // 规范化：完成任务时补全 completedAt；取消完成时清空
-    let p = { ...patch }
-    const wasDone = data.tasks.find(t => t.id === id)?.status === 'done'
-    if (patch.status === 'done' && !patch.completedAt) {
-      p.completedAt = new Date().toISOString().slice(0, 10)
-    }
-    if (patch.status && patch.status !== 'done' && patch.completedAt === undefined) {
-      // 取消完成时清空 completedAt（显式传 undefined）
-    }
+    // 仅在“刚完成”时写入完成日期；普通编辑不得意外覆写 completedAt。
+    const task = data.tasks.find(t => t.id === id)
+    const wasDone = task?.status === 'done'
     const completedNow = patch.status === 'done' && !wasDone
-    const completedAt = p.completedAt || new Date().toISOString().slice(0, 10)
+    const p = { ...patch, ...(completedNow && !patch.completedAt ? { completedAt: todayStr() } : {}) }
+    const completedAt = p.completedAt || task?.completedAt || todayStr()
     const now = new Date()
     const start = String(now.getHours()).padStart(2, '0') + ':' + String(now.getMinutes()).padStart(2, '0')
     const endDate = new Date(now.getTime() + 30 * 60 * 1000)
     const end = String(endDate.getHours()).padStart(2, '0') + ':' + String(endDate.getMinutes()).padStart(2, '0')
-    const task = data.tasks.find(t => t.id === id)
     const schedules = completedNow && task
       ? (() => {
           const linked = data.schedules.find(s => s.taskId === id)
@@ -482,7 +476,7 @@ export const store = {
             : [...data.schedules, { id: 's' + Date.now(), title: task.title, domain: task.domain, date: completedAt, start, end, projectId: task.projectId, taskId: id, done: true }]
         })()
       : data.schedules
-    write({ ...data, schedules, tasks: data.tasks.map(t => t.id === id ? { ...t, ...p, completedAt, inTop3: completedNow ? false : t.inTop3, top3Order: completedNow ? undefined : t.top3Order } : t) })
+    write({ ...data, schedules, tasks: data.tasks.map(t => t.id === id ? { ...t, ...p, completedAt: completedNow ? completedAt : ('completedAt' in p ? p.completedAt : t.completedAt), inTop3: completedNow ? false : t.inTop3, top3Order: completedNow ? undefined : t.top3Order } : t) })
   },
   // 软删除：标记 deletedAt，不真正移除（可在历史中恢复）
   deleteTask(id: string) {

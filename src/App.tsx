@@ -99,7 +99,7 @@ export default function App() {
           {/* 未登录且未选离线模式：显示登录页 */}
           {!auth.user && !offlineMode ? (
             <AuthPage
-              onAuthed={(id, email) => { auth.signIn(id, email); setOfflineMode(false) }}
+              onAuthed={(id, email, nickname) => { if (nickname) store.updateSettings({ displayName: nickname, avatarText: nickname.slice(0, 1) }); auth.signIn(id, email); setOfflineMode(false) }}
               onOffline={() => setOfflineMode(true)}
             />
           ) : (

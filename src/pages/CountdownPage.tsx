@@ -51,7 +51,7 @@ export function CountdownPage({ onBack }: { onBack: () => void }) {
   const group = (title: string, items: CountdownDay[]) => <div className="countdown-group"><div className="section-head"><span className="section-title">{title}</span><span className="t-cap">{items.length} 项</span></div><div className="card">{items.length ? items.map(renderItem) : <div className="t-cap countdown-empty">暂无</div>}</div></div>
 
   return <div className="page ledger-page">
-    <div className="page-head"><button className="t-sub tap" onClick={onBack}>‹ 返回</button><span className="page-head-title">倒数日</span><button className="chip chip-dark tap" onClick={openAdd}>新增</button></div>
+    <div className="page-head"><button className="t-sub tap" onClick={onBack}>‹ 返回</button><span className="page-head-title">倒数日</span><button type="button" className="chip chip-dark tap" onClick={openAdd}>新增</button></div>
     <div className="section"><div className="section-head"><span className="section-title">我的倒数日</span><span className="t-cap">点击条目可编辑</span></div>
       {data.countdownDays.length === 0 ? <div className="card empty-block"><div className="t-cap">还没有倒数日</div></div> : <>{group('正在 · 今天', todayItems)}{group('还没到', upcoming)}{group('已经过了', passed)}</>}
     </div>
@@ -61,8 +61,8 @@ export function CountdownPage({ onBack }: { onBack: () => void }) {
         <label className="tf-label">日期 *</label><input className="tf-input" type="date" value={form.date} onChange={e => setForm(v => ({ ...v, date: e.target.value }))} />
         <label className="tf-label">类别</label><div className="tf-chips">{(Object.keys(COUNTDOWN_CATEGORY_LABEL) as CountdownCategory[]).map(category => <button key={category} className={'chip ' + (form.category === category ? 'chip-dark' : 'line') + ' tap'} onClick={() => setForm(v => ({ ...v, category }))}>{COUNTDOWN_CATEGORY_LABEL[category]}</button>)}</div>
         <label className="tf-label">备注</label><textarea className="tf-input tf-area" value={form.note} onChange={e => setForm(v => ({ ...v, note: e.target.value }))} placeholder="写下这一天的意义、计划或提醒" rows={3} />
-        <label className="tf-label">照片</label><div className="countdown-photo-edit">{form.photo ? <img src={form.photo} alt="倒数日" /> : <div className="t-cap">尚未添加照片</div>}<div><button className="chip line tap" onClick={() => photoInput.current?.click()}>选择照片</button>{form.photo && <button className="countdown-delete tap" onClick={() => setForm(v => ({ ...v, photo: undefined }))}>移除</button>}</div></div><input ref={photoInput} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { readPhoto(e.target.files?.[0]); e.target.value = '' }} />
-        <button className="confirm-btn" onClick={save}>{editing ? '保存修改' : '添加倒数日'}</button>
+        <label className="tf-label">照片</label><div className="countdown-photo-edit">{form.photo ? <img src={form.photo} alt="倒数日" /> : <div className="t-cap">尚未添加照片</div>}<div><button type="button" className="chip line tap" onClick={() => photoInput.current?.click()}>选择照片</button>{form.photo && <button className="countdown-delete tap" onClick={() => setForm(v => ({ ...v, photo: undefined }))}>移除</button>}</div></div><input ref={photoInput} type="file" accept="image/*" style={{ display: 'none' }} onChange={e => { readPhoto(e.target.files?.[0]); e.target.value = '' }} />
+        <button type="button" className="confirm-btn" onClick={save}>{editing ? '保存修改' : '添加倒数日'}</button>
       </div>
     </div></div>}
   </div>

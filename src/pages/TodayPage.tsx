@@ -11,6 +11,7 @@ import {
 } from '../components/Icons'
 import type { TabKey } from '../components/TabBar'
 import { domainColor } from '../palette'
+import { parseDueDate, todayYmd } from '../calendar'
 
 function domainChip(d: Task['domain']): React.CSSProperties {
   const c = domainColor(d)
@@ -88,7 +89,7 @@ function Top3Card({ task, onChanged }: { task: Task; onChanged?: () => void }) {
   return (
     <div className="card card-pad top3-card">
       <div className="top3-head">
-        <span className="chip chip-dark">Top {(task.top3Order ?? 0) + 1}</span>
+        <span className="chip chip-dark">{task.inTop3 ? `Top ${(task.top3Order ?? 0) + 1}` : '今日任务'}</span>
         <span className="chip" style={domainChip(task.domain)}>{DOMAIN_LABEL[task.domain]}</span>
         <span className="chip">{PRIORITY_LABEL[task.priority]}优先</span>
         <button className="tap top3-more" onClick={() => openEdit(task)}><IconDots size={18} /></button>
@@ -97,7 +98,7 @@ function Top3Card({ task, onChanged }: { task: Task; onChanged?: () => void }) {
       <div className="top3-meta">
         <span><IconClock size={13} /> {task.estimatedMinutes}分钟</span>
         <span>·</span>
-        <span>截止 {task.dueTime || '今天'}</span>
+        <span>{task.dueTime ? `计划 ${task.dueTime}` : '今天截止'}</span>
         <span>·</span>
         <span>进度 {task.progress}%</span>
       </div>
@@ -118,7 +119,7 @@ function Top3Card({ task, onChanged }: { task: Task; onChanged?: () => void }) {
 }
 
 function TimelineRow({ s }: { s: Schedule }) {
-  const now = '14:30'
+  const now = new Date().toTimeString().slice(0, 5)
   const state = s.done ? 'done' : s.start <= now && s.end > now ? 'now' : 'next'
   const dc = domainColor(s.domain)
   return (
@@ -168,22 +169,35 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
   const { openNew } = useTaskSheet()
   const toast = useToast()
   const confirm = useConfirm()
-  const now = '14:30'
+  const now = new Date().toTimeString().slice(0, 5)
+  const today = todayYmd()
   const [showDone, setShowDone] = useState(true)
+  const [delayTaskId, setDelayTaskId] = useState<string | null>(null)
+  const [delayDate, setDelayDate] = useState(today)
   const [aiBrief, setAiBrief] = useState<{ summary?: string; focus?: string; risks?: string[]; steps?: string[]; efficiency?: string; raw?: string } | null>(null)
   const [aiLoading, setAiLoading] = useState(false)
   const [showDeepAnalysis, setShowDeepAnalysis] = useState(false)
 
   // 从 store 数据派生首页各模块（统一过滤已软删除）
   const allTasks = data.tasks.filter(t => !t.deletedAt)
-  const top3 = allTasks.filter(t => t.inTop3 && t.status !== 'done').sort((a, b) => (a.top3Order ?? 99) - (b.top3Order ?? 99)).slice(0, 3)
-  const overdueTasks = allTasks.filter(t => t.overdue && t.status !== 'done')
-  const reminders = allTasks.filter(t => !t.inTop3 && t.status !== 'done' && t.status !== 'cancelled').slice(0, 8)
-  const doneTasks = allTasks.filter(t => t.status === 'done').sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
-  const totalToday = allTasks.filter(t => t.inToday || t.inTop3 || t.status === 'done').length
+  const isActiveTask = (t: Task) => t.status !== 'done' && t.status !== 'cancelled'
+  const isDueToday = (t: Task) => parseDueDate(t.dueDate) === today
+  // Top 3 优先，其次始终纳入今天 DDL 与手动加入今日的任务。
+  const focusTasks = allTasks.filter(t => isActiveTask(t) && (t.inTop3 || t.inToday || isDueToday(t))).sort((a, b) => Number(b.inTop3) - Number(a.inTop3) || (a.top3Order ?? 99) - (b.top3Order ?? 99) || (a.dueTime || '99:99').localeCompare(b.dueTime || '99:99'))
+  const top3 = focusTasks.filter(t => t.inTop3).slice(0, 3)
+  const overdueTasks = allTasks.filter(t => t.overdue && isActiveTask(t))
+  const reminders = allTasks.filter(t => isActiveTask(t) && !t.inToday && !t.inTop3 && !isDueToday(t)).slice(0, 8)
+  const doneTasks = allTasks.filter(t => t.status === 'done' && t.completedAt === today).sort((a, b) => (b.completedAt || '').localeCompare(a.completedAt || ''))
+  const totalToday = focusTasks.length + doneTasks.length
   const todayProgress = totalToday > 0 ? Math.round((doneTasks.length / totalToday) * 100) : 0
   const inspirations = data.inspirations.filter(i => !i.archived).slice(0, 5)
-  const todayTimeline = data.schedules.filter(s => s.date === new Date().toISOString().slice(0, 10)).sort((a, b) => a.start.localeCompare(b.start))
+  const taskTimeline: Schedule[] = focusTasks.filter(t => t.dueTime).map(t => {
+    const [hour, minute] = t.dueTime!.split(':').map(Number)
+    const endMinutes = hour * 60 + minute + (t.estimatedMinutes || 30)
+    return { id: `task-${t.id}`, title: t.title, domain: t.domain, date: today, start: t.dueTime!, end: `${String(Math.floor(endMinutes / 60) % 24).padStart(2, '0')}:${String(endMinutes % 60).padStart(2, '0')}`, projectId: t.projectId, taskId: t.id, done: false }
+  })
+  const todaySchedules = data.schedules.filter(s => s.date === today)
+  const todayTimeline = [...todaySchedules, ...taskTimeline].filter((s, index, list) => !s.taskId || !list.some((other, otherIndex) => otherIndex < index && other.taskId === s.taskId)).sort((a, b) => a.start.localeCompare(b.start))
   const homeCountdown = data.countdownDays.find(d => d.showOnHome)
 
   const greeting = data.meta.greeting
@@ -193,9 +207,16 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
     store.updateTask(id, { status: 'done', progress: 100 })
     toast('已完成 ✓')
   }
-  const delayReminder = (id: string) => {
-    store.updateTask(id, { inToday: false })
-    toast('已延期')
+  const openDelayReminder = (id: string) => {
+    setDelayTaskId(id)
+    const tomorrow = new Date(); tomorrow.setDate(tomorrow.getDate() + 1)
+    setDelayDate(tomorrow.toISOString().slice(0, 10))
+  }
+  const confirmDelayReminder = () => {
+    if (!delayTaskId || !delayDate) return
+    store.updateTask(delayTaskId, { dueDate: delayDate, inToday: false, inTop3: false, top3Order: undefined })
+    setDelayTaskId(null)
+    toast(`已延期至 ${delayDate}`)
   }
   const deleteReminder = async (id: string) => {
     const ok = await confirm({ title: '删除这条任务？', message: '删除后可在历史记录中恢复。', confirmText: '删除' })
@@ -296,12 +317,13 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
       {/* 3. Top 3 */}
       <div className="section">
         <div className="section-head">
-          <span className="section-title">今日聚焦 · Top 3</span>
+          <span className="section-title">今日聚焦{top3.length ? ' · Top 3 优先' : ''}</span>
           <button className="section-action" onClick={() => openNew()}>＋ 添加</button>
         </div>
-        {top3.length > 0 ? (
+        {focusTasks.length > 0 || todaySchedules.length > 0 ? (
           <div className="top3-list">
-            {top3.map(t => <Top3Card key={t.id} task={t} />)}
+            {focusTasks.map(t => <Top3Card key={t.id} task={t} />)}
+            {todaySchedules.filter(s => !s.taskId).map(s => <div className="card card-pad top3-card" key={s.id}><div className="top3-head"><span className="chip chip-dark">今日安排</span><span className="chip" style={domainChip(s.domain)}>{DOMAIN_LABEL[s.domain]}</span></div><div className="top3-title">{s.title}</div><div className="top3-meta"><span><IconClock size={13} /> {s.start} – {s.end}</span></div></div>)}
           </div>
         ) : (
           <div className="card card-pad empty-block">
@@ -387,7 +409,7 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
                 </div>
                 <div className="reminder-acts">
                   <button className="tap t-cap" onClick={() => { store.updateTask(r.id, { inToday: true, inTop3: r.inTop3 }); toast('已加入今日') }}>加入今日</button>
-                  <button className="tap t-cap" onClick={() => delayReminder(r.id)}>延期</button>
+                  <button className="tap t-cap" onClick={() => openDelayReminder(r.id)}>延期</button>
                   <button className="tap t-cap" onClick={() => completeReminder(r.id)}>完成</button>
                   <button className="tap t-cap" onClick={() => ignoreReminder(r.id)}>忽略</button>
                   <button className="tap t-cap" style={{ color: 'var(--danger)' }} onClick={() => deleteReminder(r.id)}>删除</button>
@@ -402,6 +424,8 @@ export function TodayPage({ onSwitchTab, onOpenHistory }: { onSwitchTab?: (t: Ta
           </div>
         )}
       </div>
+
+      {delayTaskId && <div className="sheet-mask" onClick={() => setDelayTaskId(null)}><div className="confirm-sheet" onClick={e => e.stopPropagation()}><div className="t-h3" style={{ textAlign: 'center' }}>延期至</div><input className="tf-input" type="date" value={delayDate} min={today} onChange={e => setDelayDate(e.target.value)} style={{ marginTop: 16 }} /><div style={{ marginTop: 16 }}><button className="confirm-btn" onClick={confirmDelayReminder}>确认延期</button><button className="confirm-btn ghost" onClick={() => setDelayTaskId(null)}>取消</button></div></div></div>}
 
       {/* 7. 最近灵感 */}
       <div className="section">
