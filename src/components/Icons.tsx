@@ -23,6 +23,7 @@ export const IconBolt = (p: P) => <S {...p}><path d="M13 3L4 14h7l-1 7 9-11h-7z"
 export const IconMail = (p: P) => <S {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><path d="M3 7l9 6 9-6" /></S>
 export const IconLock = (p: P) => <S {...p}><rect x="5" y="11" width="14" height="9" rx="2" /><path d="M8 11V8a4 4 0 0 1 8 0v3" /></S>
 export const IconBulb = (p: P) => <S {...p}><path d="M9 18h6M10 21h4M12 2a6 6 0 0 0-4 10c1 1 2 2 2 4h4c0-2 1-3 2-4a6 6 0 0 0-4-10z" /></S>
+export const IconSparkle = (p: P) => <S {...p}><path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8z" /><path d="M19 3.5l.6 1.7L21.3 6l-1.7.6L19 8.3l-.6-1.7L16.7 6l1.7-.6z" /></S>
 export const IconNote = (p: P) => <S {...p}><path d="M5 3h10l4 4v14a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V4a1 1 0 0 1 1-1z" /><path d="M8 13h8M8 17h5" /></S>
 export const IconPhoto = (p: P) => <S {...p}><rect x="3" y="5" width="18" height="14" rx="2" /><circle cx="9" cy="11" r="2" /><path d="M3 17l5-4 4 3 4-3 5 4" /></S>
 export const IconFlag = (p: P) => <S {...p}><path d="M5 21V4M5 4h11l-2 4 2 4H5" /></S>

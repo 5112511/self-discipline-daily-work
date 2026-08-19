@@ -911,6 +911,37 @@ export const store = {
     }
   },
 
+  // AI 生成创作热点选题：调用后端 /api/gemini，按账号定位生成具体可执行的选题内容
+  async refreshTrendingWithAI(category?: TrendingCategory | 'all'): Promise<{ ok: boolean; count: number; error?: string }> {
+    const data = read()
+    try {
+      const response = await fetch('/api/gemini', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'trending', category: category && category !== 'all' ? category : undefined, count: 8 }),
+      })
+      const result = await response.json()
+      if (!response.ok) throw new Error(result.error || 'AI 选题生成失败')
+      const rawTopics = Array.isArray(result.topics) ? result.topics : []
+      if (!rawTopics.length) throw new Error('AI 未返回有效选题')
+      const items: TrendingTopic[] = rawTopics.map((x: any) => ({
+        id: 't' + Date.now() + Math.floor(Math.random() * 10000),
+        title: String(x.title || '').trim() || '未命名选题',
+        angle: String(x.angle || '结构化拆解').trim(),
+        platform: String(x.platform || '小红书').trim(),
+        category: (['flow', 'life', 'knowledge', 'emotion', 'trend', 'skill'].includes(x.category) ? x.category : 'knowledge') as TrendingCategory,
+        heat: Math.max(0, Math.min(100, Number(x.heat) || 60)),
+        keywords: Array.isArray(x.keywords) ? x.keywords.slice(0, 5).map((k: any) => String(k)) : [],
+        source: 'ai',
+        fetchedAt: new Date().toISOString(),
+      }))
+      write({ ...data, trendingTopics: items })
+      return { ok: true, count: items.length }
+    } catch (e) {
+      return { ok: false, count: 0, error: e instanceof Error ? e.message : 'AI 选题生成失败' }
+    }
+  },
+
   // 更新热点抓取源配置
   updateTrendingSource(patch: Partial<TrendingSource>) {
     const data = read()

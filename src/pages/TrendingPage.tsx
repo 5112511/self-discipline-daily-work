@@ -2,7 +2,7 @@ import React, { useState } from 'react'
 import { useStore } from '../useStore'
 import { store } from '../store'
 import { DOMAIN_LABEL, TRENDING_CATEGORY_LABEL, type Domain, type TrendingCategory, type TrendingTopic } from '../types'
-import { IconBolt, IconPlus, IconRefresh, IconArrowRight } from '../components/Icons'
+import { IconBolt, IconPlus, IconRefresh, IconArrowRight, IconSparkle } from '../components/Icons'
 import { useToast } from '../components/Toast'
 import { domainColor } from '../palette'
 
@@ -23,6 +23,7 @@ export function TrendingPage({ onBack }: { onBack: () => void }) {
   const data = useStore()
   const toast = useToast()
   const [filter, setFilter] = useState<TrendingCategory | 'all'>('all')
+  const [aiLoading, setAiLoading] = useState(false)
   const trend = data.weekTrend.length ? data.weekTrend : [3, 5, 2, 6, 4, 7, 5]
   const maxTrend = Math.max(...trend, 1)
   const heatmap = data.heatmap.length ? data.heatmap : new Array(35).fill(0).map(() => Math.floor(Math.random() * 5))
@@ -49,6 +50,17 @@ export function TrendingPage({ onBack }: { onBack: () => void }) {
     } else {
       store.addInspiration(t.title, 'web')
       toast('已加入灵感')
+    }
+  }
+
+  const handleAiTrending = async () => {
+    setAiLoading(true)
+    try {
+      const result = await store.refreshTrendingWithAI(filter)
+      if (result.ok) toast(`AI 已生成 ${result.count} 条选题 ✓`)
+      else toast(result.error || 'AI 选题生成失败')
+    } finally {
+      setAiLoading(false)
     }
   }
 
@@ -87,7 +99,10 @@ export function TrendingPage({ onBack }: { onBack: () => void }) {
         <div className="section-head">
           <span className="section-title">创作热点选题</span>
           <button className="chip line tap" onClick={() => { store.refreshTrending(); toast('已刷新热点 ✓') }} style={{ gap: 4 }}>
-            <IconRefresh size={12} /> 刷新
+            <IconRefresh size={12} /> 本地刷新
+          </button>
+          <button className="chip chip-dark tap" onClick={handleAiTrending} disabled={aiLoading} style={{ gap: 4 }}>
+            <IconSparkle size={12} /> {aiLoading ? 'AI 生成中…' : 'AI 跑选题'}
           </button>
         </div>
         <div className="t-sub" style={{ marginBottom: 8 }}>Agent-Reach 抓取 · 小红书/抖音/B站 · 共 {data.trendingTopics.length} 条</div>
@@ -110,6 +125,7 @@ export function TrendingPage({ onBack }: { onBack: () => void }) {
                 <span className="trend-heat" style={{ color: CATEGORY_COLOR[t.category] }}>
                   <IconBolt size={11} /> {t.heat}
                   {t.source === 'real' && <span className="t-cap" style={{ marginLeft: 4, fontSize: 10 }}>真实</span>}
+                  {t.source === 'ai' && <span className="t-cap" style={{ marginLeft: 4, fontSize: 10 }}>AI 生成</span>}
                 </span>
               </div>
               <div className="trend-title">{t.title}</div>

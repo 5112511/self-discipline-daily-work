@@ -106,7 +106,7 @@ export interface TrendingTopic {
   heat: number             // 热度 0-100
   keywords: string[]       // 标签关键词
   url?: string             // 原文链接（真实抓取时有）
-  source?: 'real' | 'sim'  // 来源标记
+  source?: 'real' | 'sim' | 'ai'  // 来源标记
   fetchedAt?: string       // 抓取时间 ISO
 }
 
